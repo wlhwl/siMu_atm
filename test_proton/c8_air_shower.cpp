@@ -24,7 +24,6 @@
 #include <corsika/framework/process/SwitchProcessSequence.hpp>
 #include <corsika/framework/random/RNGManager.hpp>
 #include <corsika/framework/utility/CorsikaFenv.hpp>
-#include <corsika/framework/utility/SaveBoostHistogram.hpp>
 
 #include <corsika/modules/writers/EnergyLossWriter.hpp>
 #include <corsika/modules/writers/LongitudinalWriter.hpp>
@@ -208,10 +207,6 @@ int main(int argc, char** argv) {
   bool force_interaction = false;
   app.add_flag("--force-interaction", force_interaction,
                "Force the location of the first interaction.")
-      ->group("Misc.");
-  bool disable_interaction_hists = false;
-  app.add_flag("--disable-interaction-histograms", disable_interaction_hists,
-               "Store interaction histograms")
       ->group("Misc.");
   app.add_option("-v,--verbosity", "Verbosity level: warn, info, debug, trace.")
       ->default_val("info")
@@ -482,14 +477,6 @@ int main(int argc, char** argv) {
   for (int i_shower = 1; i_shower < nevent + 1; i_shower++) {
 
     CORSIKA_LOG_INFO("Shower {} / {} ", i_shower, nevent);
-
-    // directory for output of interaction histograms
-    string const outdir(app["--filename"]->as<std::string>() + "/interaction_hist");
-    // construct the directory
-    boost::filesystem::create_directories(outdir);
-    string const labHist_file = outdir + "/inthist_lab_" + to_string(i_shower) + ".npz";
-    string const cMSHist_file = outdir + "/inthist_cms_" + to_string(i_shower) + ".npz";
-
     // setup particle stack, and add primary particle
     stack.clear();
 
@@ -509,13 +496,6 @@ int main(int argc, char** argv) {
 
     // run the shower
     EAS.run();
-
-    auto const hists = heCounted.getHistogram() + leIntCounted.getHistogram();
-
-    if (!disable_interaction_hists) {
-      save_hist(hists.labHist(), labHist_file, true);
-      save_hist(hists.CMSHist(), cMSHist_file, true);
-    }
   }
 
   // and finalize the output on disk
