@@ -407,10 +407,10 @@ int main(int argc, char** argv) {
   output.add("particles_sea_level", seaobservationLevel);
   
   PrimaryWriter<TrackingType, ParticleWriterParquet> seaprimaryWriter(seaobservationLevel);
-  output.add("primary_sea", seaobservationLevel);
+  output.add("primary_sea", seaprimaryWriter);
   
   //observation plane 3km under sea level
-  Point const detPlaneCenter = Point(rootCS, {0_m, 0_m, constants::EarthRadius::Mean + observationHeight});
+  Point const detPlaneCenter = Point(rootCS, {0_m, 0_m, observationHeight});
   Plane const detPlane(detPlaneCenter, DirectionVector(rootCS, {0., 0., 1.}));
   ObservationPlane<TrackingType, ParticleWriterParquet> detobservationLevel{
                            detPlane, DirectionVector(rootCS, {1., 0., 0.}),
@@ -420,11 +420,11 @@ int main(int argc, char** argv) {
   output.add("particles_det_level", detobservationLevel);
 
   PrimaryWriter<TrackingType, ParticleWriterParquet> detprimaryWriter(detobservationLevel);
-  output.add("primary_det", detobservationLevel);
+  output.add("primary_det", detprimaryWriter);
   
   // assemble the final process sequence
   auto sequence = make_sequence(hadronSequence,
-                                decayPythia, emCascade, emContinuous, cut);
+                                decayPythia, emCascade, emContinuous, seaobservationLevel, detobservationLevel, cut);
 
   /* === END: SETUP PROCESS LIST === */
 
@@ -450,6 +450,7 @@ int main(int argc, char** argv) {
         plab.normalized(), injectionPos, 0_ns);
     stack.addParticle(primaryProperties);
 
+    seaprimaryWriter.recordPrimary(primaryProperties);
     detprimaryWriter.recordPrimary(primaryProperties);
 
     // run the shower
@@ -460,5 +461,3 @@ int main(int argc, char** argv) {
   // and finalize the output on disk
   output.endOfLibrary();
 
-  return EXIT_SUCCESS;
-}
