@@ -227,10 +227,6 @@ int main(int argc, char** argv) {
       ->default_val(std::pow(10, 1.9)) // 79.4 GeV
       ->check(CLI::NonNegativeNumber)
       ->group("Misc.");
-  app.add_option("--ring", "concentric ring of star shape pattern of antennas")
-      ->default_val(0)
-      ->check(CLI::Range(0, 20))
-      ->group("Radio");
   // parse the command line options into the variables
   CLI11_PARSE(app, argc, argv);
 
@@ -437,8 +433,6 @@ int main(int argc, char** argv) {
 #endif
   InteractionCounter leIntCounted{leIntModel};
 
-  StackInspector<StackType> stackInspect(10000, false, E0);
-
   // assemble all processes into an ordered process list
   struct EnergySwitch {
     HEPEnergyType cutE_;
@@ -461,12 +455,8 @@ int main(int argc, char** argv) {
   PrimaryWriter<TrackingType, ParticleWriterParquet> primaryWriter(observationLevel);
   output.add("primary", primaryWriter);
 
-  int ring_number{app["--ring"]->as<int>()};
-  auto const radius_{ring_number * 25_m};
-  const int rr_ = static_cast<int>(radius_ / 1_m);
-
   // assemble the final process sequence with radio
-  auto sequence = make_sequence(stackInspect, neutrinoPrimaryPythia, hadronSequence,
+  auto sequence = make_sequence(neutrinoPrimaryPythia, hadronSequence,
                                 decayPythia, emCascade, emContinuous, observationLevel, cut);
 
   /* === END: SETUP PROCESS LIST === */
