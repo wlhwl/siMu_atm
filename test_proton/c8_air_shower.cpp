@@ -58,7 +58,6 @@
 #include <corsika/modules/Sibyll.hpp>
 #include <corsika/modules/Sophia.hpp>
 #include <corsika/modules/StackInspector.hpp>
-#include <corsika/modules/thinning/EMThinning.hpp>
 // for ICRC2023
 #ifdef WITH_FLUKA
 #include <corsika/modules/FLUKA.hpp>
@@ -111,7 +110,6 @@ long registerRandomStreams(long seed) {
   RNGManager<>::getInstance().registerRandomStream("urqmd");
   RNGManager<>::getInstance().registerRandomStream("fluka");
   RNGManager<>::getInstance().registerRandomStream("proposal");
-  RNGManager<>::getInstance().registerRandomStream("thinning");
   if (seed == 0) {
     std::random_device rd;
     seed = rd();
@@ -230,20 +228,6 @@ int main(int argc, char** argv) {
       ->default_val(std::pow(10, 1.9)) // 79.4 GeV
       ->check(CLI::NonNegativeNumber)
       ->group("Misc.");
-  app.add_option("--emthin",
-                 "fraction of primary energy at which thinning of EM particles starts")
-      ->default_val(1.e-6)
-      ->check(CLI::Range(0., 1.))
-      ->group("Thinning");
-  app.add_option("--max-weight",
-                 "maximum weight for thinning of EM particles (0 to select Kobal's "
-                 "optimum times 0.5)")
-      ->default_val(0)
-      ->check(CLI::NonNegativeNumber)
-      ->group("Thinning");
-  bool multithin = false;
-  app.add_flag("--multithin", multithin, "keep thinned particles (with weight=0)")
-      ->group("Thinning");
   app.add_option("--ring", "concentric ring of star shape pattern of antennas")
       ->default_val(0)
       ->check(CLI::Range(0, 20))
@@ -373,15 +357,6 @@ int main(int argc, char** argv) {
   auto const dX = 10_g / square(1_cm); // Binning of the writers along the shower axis
   /* === END: CONSTRUCT GEOMETRY === */
 
-  double const emthinfrac = app["--emthin"]->as<double>();
-  double const maxWeight = std::invoke([&]() {
-    if (auto const wm = app["--max-weight"]->as<double>(); wm > 0)
-      return wm;
-    else
-      return 0.5 * emthinfrac * E0 / 1_GeV;
-  });
-  EMThinning thinning{emthinfrac * E0, maxWeight, !multithin};
-
   std::stringstream args;
   for (int i = 0; i < argc; ++i) { args << argv[i] << " "; }
   // create the output manager that we then register outputs with
@@ -510,7 +485,7 @@ int main(int argc, char** argv) {
 
   // assemble the final process sequence with radio
   auto sequence = make_sequence(stackInspect, neutrinoPrimaryPythia, hadronSequence,
-                                decayPythia, emCascade, emContinuous, longprof, observationLevel, thinning, cut);
+                                decayPythia, emCascade, emContinuous, longprof, observationLevel, cut);
 
   /* === END: SETUP PROCESS LIST === */
 
