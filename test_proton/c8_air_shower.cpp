@@ -345,11 +345,6 @@ int main(int argc, char** argv) {
                                    {-sin(thetaRad) * cos(phiRad),
                                     -sin(thetaRad) * sin(phiRad), cos(thetaRad)}} *
                        t;
-
-  // we make the axis much longer than the inj-core distance since the
-  // profile will go beyond the core, depending on zenith angle
-  ShowerAxis const showerAxis{injectionPos, (showerCore - injectionPos) * 1.2, env};
-  auto const dX = 10_g / square(1_cm); // Binning of the writers along the shower axis
   /* === END: CONSTRUCT GEOMETRY === */
 
   std::stringstream args;
