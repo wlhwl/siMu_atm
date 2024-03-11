@@ -396,20 +396,35 @@ int main(int argc, char** argv) {
       make_select(EnergySwitch(heHadronModelThreshold), leIntCounted, heCounted);
 
   // observation plane
-  Plane const obsPlane(showerCore, DirectionVector(rootCS, {0., 0., 1.}));
-  ObservationPlane<TrackingType, ParticleWriterParquet> observationLevel{
-      obsPlane, DirectionVector(rootCS, {1., 0., 0.}),
-      true,   // plane should "absorb" particles
-      false}; // do not print z-coordinate
+  // observation plane sea level
+  Point const seaPlaneCenter = Point(rootCS, {0_m, 0_m, constants::EarthRadius::Mean});
+  Plane const seaPlane(seaPlaneCenter, DirectionVector(rootCS, {0., 0., 1.}));
+  ObservationPlane<TrackingType, ParticleWriterParquet> seaobservationLevel{
+                          seaPlane, DirectionVector(rootCS, {1., 0., 0.}),
+                          false,   // plane should not "absorb" particles
+                          false}; // do not print z-coordinate
   // register ground particle output
-  output.add("particles", observationLevel);
+  output.add("particles_sea_level", seaobservationLevel);
+  
+  PrimaryWriter<TrackingType, ParticleWriterParquet> seaprimaryWriter(seaobservationLevel);
+  output.add("primary_sea", seaobservationLevel);
+  
+  //observation plane 3km under sea level
+  Point const detPlaneCenter = Point(rootCS, {0_m, 0_m, constants::EarthRadius::Mean + observationHeight});
+  Plane const detPlane(detPlaneCenter, DirectionVector(rootCS, {0., 0., 1.}));
+  ObservationPlane<TrackingType, ParticleWriterParquet> detobservationLevel{
+                           detPlane, DirectionVector(rootCS, {1., 0., 0.}),
+                           true,   // plane should "absorb" particles
+                           false}; // do not print z-coordinate
+  // register ground particle output
+  output.add("particles_det_level", detobservationLevel);
 
-  PrimaryWriter<TrackingType, ParticleWriterParquet> primaryWriter(observationLevel);
-  output.add("primary", primaryWriter);
-
-  // assemble the final process sequence with radio
+  PrimaryWriter<TrackingType, ParticleWriterParquet> detprimaryWriter(detobservationLevel);
+  output.add("primary_det", detobservationLevel);
+  
+  // assemble the final process sequence
   auto sequence = make_sequence(hadronSequence,
-                                decayPythia, emCascade, emContinuous, observationLevel, cut);
+                                decayPythia, emCascade, emContinuous, cut);
 
   /* === END: SETUP PROCESS LIST === */
 
@@ -435,7 +450,7 @@ int main(int argc, char** argv) {
         plab.normalized(), injectionPos, 0_ns);
     stack.addParticle(primaryProperties);
 
-    primaryWriter.recordPrimary(primaryProperties);
+    detprimaryWriter.recordPrimary(primaryProperties);
 
     // run the shower
     EAS.run();
