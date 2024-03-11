@@ -149,8 +149,7 @@ int main(int argc, char** argv) {
       ->group("Primary");
   // the remainding options
   app.add_option("-E,--energy", "Primary energy in GeV")
-      ->required()
-      ->check(CLI::PositiveNumber)
+      ->default_val(0.)
       ->group("Primary");
   app.add_option("--eMin", "Minimum energy of the inject spectrum [GeV]")
       ->check(CLI::Range(50.0, 1e8)) 
@@ -185,7 +184,7 @@ int main(int argc, char** argv) {
   app.add_option("--observation-level",
                  "Height above earth radius of the observation level (in m)")
       ->default_val(0.)
-      ->check(CLI::Range(-1.e3, 1.e5))
+      ->check(CLI::Range(-5.e3, 1.e5))
       ->group("Config");
   app.add_option("--injection-height",
                  "Height above earth radius of the injection point (in m)")
@@ -312,7 +311,7 @@ int main(int argc, char** argv) {
 
   /* === START: CONSTRUCT GEOMETRY === */
   auto const observationHeight =
-      app["--observation-level"]->as<double>() * 3_m + constants::EarthRadius::Mean;
+      app["--observation-level"]->as<double>() * 1_m + constants::EarthRadius::Mean;
   auto const injectionHeight =
       app["--injection-height"]->as<double>() * 1_m + constants::EarthRadius::Mean;
   Point const showerCore{rootCS, 0_m, 0_m, observationHeight};
@@ -443,7 +442,8 @@ int main(int argc, char** argv) {
     stack.clear();
 
     //particle energy
-    HEPEnergyType const E0 = 1_GeV * app["--energy"]->as<double>();
+    HEPEnergyType const E0 = 1_eV * e_generator.get_E_classical_distribution();
+    //HEPEnergyType const E0 = 1_GeV * app["--eMin"]->as<double>();
 
     // direction of the shower in (theta, phi) space   
     auto const thetaRad = app["--zenith"]->as<double>() / 180. * M_PI;
