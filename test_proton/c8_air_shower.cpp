@@ -56,12 +56,7 @@
 #include <corsika/modules/Sibyll.hpp>
 #include <corsika/modules/Sophia.hpp>
 #include <corsika/modules/StackInspector.hpp>
-// for ICRC2023
-#ifdef WITH_FLUKA
-#include <corsika/modules/FLUKA.hpp>
-#else
 #include <corsika/modules/UrQMD.hpp>
-#endif
 
 
 #include <corsika/setup/SetupStack.hpp>
@@ -106,7 +101,6 @@ long registerRandomStreams(long seed) {
   RNGManager<>::getInstance().registerRandomStream("epos");
   RNGManager<>::getInstance().registerRandomStream("pythia");
   RNGManager<>::getInstance().registerRandomStream("urqmd");
-  RNGManager<>::getInstance().registerRandomStream("fluka");
   RNGManager<>::getInstance().registerRandomStream("proposal");
   if (seed == 0) {
     std::random_device rd;
@@ -205,9 +199,6 @@ int main(int argc, char** argv) {
       ->check(CLI::NonNegativeNumber)
       ->group("Misc.");
   bool force_interaction = false;
-  app.add_flag("--force-interaction", force_interaction,
-               "Force the location of the first interaction.")
-      ->group("Misc.");
   app.add_option("-v,--verbosity", "Verbosity level: warn, info, debug, trace.")
       ->default_val("info")
       ->check(CLI::IsMember({"warn", "info", "debug", "trace"}))
@@ -415,12 +406,7 @@ int main(int argc, char** argv) {
   // use BetheBlochPDG for hadronic continuous losses, and proposal otherwise
   corsika::proposal::ContinuousProcess emContinuous(env);
 
-// for ICRC2023
-#ifdef WITH_FLUKA
-  corsika::fluka::Interaction leIntModel{env};
-#else
   corsika::urqmd::UrQMD leIntModel{};
-#endif
   InteractionCounter leIntCounted{leIntModel};
 
   // assemble all processes into an ordered process list
@@ -457,19 +443,6 @@ int main(int argc, char** argv) {
   StackType stack;
   Cascade EAS(env, tracking, sequence, output, stack);
 
-  // print our primary parameters all in one place
-  CORSIKA_LOG_INFO("Primary name: {}", beamCode);
-  if (app["--pdg"]->count() > 0) {
-    CORSIKA_LOG_INFO("Primary PDG ID:     {}", app["--pdg"]->as<int>());
-  } else {
-    CORSIKA_LOG_INFO("Primary Z/A:        {}/{}", Z, A);
-  }
-  CORSIKA_LOG_INFO("Primary Energy:     {}", E0);
-  CORSIKA_LOG_INFO("Primary Momentum:   {}", P0);
-  CORSIKA_LOG_INFO("Primary Direction:  {}", plab.getNorm());
-  CORSIKA_LOG_INFO("Point of Injection: {}", injectionPos.getCoordinates());
-  CORSIKA_LOG_INFO("Shower Axis Length: {}", (showerCore - injectionPos).getNorm() * 1.2);
-
   // trigger the output manager to open the library for writing
   output.startOfLibrary();
 
@@ -486,16 +459,11 @@ int main(int argc, char** argv) {
         plab.normalized(), injectionPos, 0_ns);
     stack.addParticle(primaryProperties);
 
-    // if we want to fix the first location of the shower
-    if (force_interaction) {
-      CORSIKA_LOG_INFO("Fixing first interaction at injection point.");
-      EAS.forceInteraction();
-    }
-
     primaryWriter.recordPrimary(primaryProperties);
 
     // run the shower
     EAS.run();
+    std::cout<<"Run with flying colours"<<std::endl;
   }
 
   // and finalize the output on disk
