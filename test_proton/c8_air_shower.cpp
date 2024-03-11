@@ -73,6 +73,16 @@
 #include <limits>
 #include <string>
 
+#include "TRandom3.h"
+#include <TTree.h>
+#include <TFile.h>
+#include "TRandom.h"
+#include "TF1.h"
+#include "TMath.h"
+#include "TString.h"
+#include "TList.h"
+#include "initial_energy_generator.hpp"
+
 using namespace corsika;
 using namespace std;
 
@@ -141,6 +151,14 @@ int main(int argc, char** argv) {
   app.add_option("-E,--energy", "Primary energy in GeV")
       ->required()
       ->check(CLI::PositiveNumber)
+      ->group("Primary");
+  app.add_option("--eMin", "Minimum energy of the inject spectrum [GeV]")
+      ->check(CLI::Range(50.0, 1e8)) 
+      ->default_val(1e5)
+      ->group("Primary");
+  app.add_option("--eMax", "Maximum energy of the inject spectrum [GeV]")
+      ->check(CLI::Range(50.0, 1e10))
+      ->default_val(1e8)
       ->group("Primary");
   app.add_option("-z,--zenith", "Primary zenith angle (deg)")
       ->default_val(0.)
@@ -408,6 +426,11 @@ int main(int argc, char** argv) {
   TrackingType tracking;
   StackType stack;
   Cascade EAS(env, tracking, sequence, output, stack);
+
+  double eMin = app["--eMin"]->as<double>() * 1e9;
+  double eMax = app["--eMax"]->as<double>() * 1e9;
+  initial_energy_generator e_generator(eMin, eMax, -2, seed);
+  TRandom3* rnd = new TRandom3(seed==0? 0 : (seed+1) );
 
   // trigger the output manager to open the library for writing
   output.startOfLibrary();
