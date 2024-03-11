@@ -49,7 +49,6 @@
 
 #include <corsika/modules/BetheBlochPDG.hpp>
 #include <corsika/modules/Epos.hpp>
-#include <corsika/modules/LongitudinalProfile.hpp>
 #include <corsika/modules/ObservationPlane.hpp>
 #include <corsika/modules/PROPOSAL.hpp>
 #include <corsika/modules/ParticleCut.hpp>
@@ -363,10 +362,6 @@ int main(int argc, char** argv) {
   auto const outputDir = boost::filesystem::path(app["--dir"]->as<std::string>());
   OutputManager output(app["--filename"]->as<std::string>(), seed, args.str(), outputDir);
 
-  // register energy losses as output
-  EnergyLossWriter dEdX{showerAxis, dX};
-  output.add("energyloss", dEdX);
-
   DynamicInteractionProcess<StackType> heModel;
 
   // have SIBYLL always for PROPOSAL photo-hadronic interactions
@@ -412,8 +407,7 @@ int main(int argc, char** argv) {
   HEPEnergyType const emcut = 1_GeV * app["--emcut"]->as<double>();
   HEPEnergyType const hadcut = 1_GeV * app["--hadcut"]->as<double>();
   HEPEnergyType const mucut = 1_GeV * app["--mucut"]->as<double>();
-  ParticleCut<SubWriter<decltype(dEdX)>> cut(emcut, emcut, hadcut, mucut,
-                                             !track_neutrinos, dEdX);
+  ParticleCut cut(emcut, emcut, hadcut, mucut, true);
 
   // tell proposal that we are interested in all energy losses above the particle cut
   set_energy_production_threshold(Code::Electron, std::min({emcut, hadcut, mucut}));
@@ -433,19 +427,7 @@ int main(int argc, char** argv) {
       env, sophia, sibyll->getHadronInteractionModel(), heHadronModelThreshold);
 
   // use BetheBlochPDG for hadronic continuous losses, and proposal otherwise
-  corsika::proposal::ContinuousProcess<SubWriter<decltype(dEdX)>> emContinuousProposal(
-      env, dEdX);
-  BetheBlochPDG<SubWriter<decltype(dEdX)>> emContinuousBethe{dEdX};
-  struct EMHadronSwitch {
-    EMHadronSwitch() = default;
-    bool operator()(const Particle& p) const { return is_hadron(p.getPID()); }
-  };
-  auto emContinuous =
-      make_select(EMHadronSwitch(), emContinuousBethe, emContinuousProposal);
-
-  LongitudinalWriter profile{showerAxis, dX};
-  output.add("profile", profile);
-  LongitudinalProfile<SubWriter<decltype(profile)>> longprof{profile};
+  corsika::proposal::ContinuousProcess emContinuous(env);
 
 // for ICRC2023
 #ifdef WITH_FLUKA
@@ -485,7 +467,7 @@ int main(int argc, char** argv) {
 
   // assemble the final process sequence with radio
   auto sequence = make_sequence(stackInspect, neutrinoPrimaryPythia, hadronSequence,
-                                decayPythia, emCascade, emContinuous, longprof, observationLevel, cut);
+                                decayPythia, emCascade, emContinuous, observationLevel, cut);
 
   /* === END: SETUP PROCESS LIST === */
 
@@ -542,15 +524,6 @@ int main(int argc, char** argv) {
 
     // run the shower
     EAS.run();
-
-    HEPEnergyType const Efinal =
-        dEdX.getEnergyLost() + observationLevel.getEnergyGround();
-
-    CORSIKA_LOG_INFO(
-        "total energy budget (GeV): {} (dEdX={} ground={}), "
-        "relative difference (%): {}",
-        Efinal / 1_GeV, dEdX.getEnergyLost() / 1_GeV,
-        observationLevel.getEnergyGround() / 1_GeV, (Efinal / E0 - 1) * 100);
 
     auto const hists = heCounted.getHistogram() + leIntCounted.getHistogram();
 
