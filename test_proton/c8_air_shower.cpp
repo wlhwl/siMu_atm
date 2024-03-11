@@ -292,37 +292,12 @@ int main(int argc, char** argv) {
   }
   HEPEnergyType mass = get_mass(beamCode);
 
-  // particle energy
-  HEPEnergyType const E0 = 1_GeV * app["--energy"]->as<double>();
-
-  // direction of the shower in (theta, phi) space
-  auto const thetaRad = app["--zenith"]->as<double>() / 180. * M_PI;
-  auto const phiRad = app["--azimuth"]->as<double>() / 180. * M_PI;
-
-  // convert Elab to Plab
-  HEPMomentumType P0 = calculate_momentum(E0, mass);
-
-  // convert the momentum to the zenith and azimuth angle of the primary
-  auto const [px, py, pz] =
-      std::make_tuple(P0 * sin(thetaRad) * cos(phiRad), P0 * sin(thetaRad) * sin(phiRad),
-                      -P0 * cos(thetaRad));
-  auto plab = MomentumVector(rootCS, {px, py, pz});
-  /* === END: CONSTRUCT PRIMARY PARTICLE === */
-
   /* === START: CONSTRUCT GEOMETRY === */
   auto const observationHeight =
       app["--observation-level"]->as<double>() * 3_m + constants::EarthRadius::Mean;
   auto const injectionHeight =
       app["--injection-height"]->as<double>() * 1_m + constants::EarthRadius::Mean;
-  auto const t = -observationHeight * cos(thetaRad) +
-                 sqrt(-static_pow<2>(sin(thetaRad) * observationHeight) +
-                      static_pow<2>(injectionHeight));
   Point const showerCore{rootCS, 0_m, 0_m, observationHeight};
-  Point const injectionPos =
-      showerCore + DirectionVector{rootCS,
-                                   {-sin(thetaRad) * cos(phiRad),
-                                    -sin(thetaRad) * sin(phiRad), cos(thetaRad)}} *
-                       t;
   /* === END: CONSTRUCT GEOMETRY === */
 
   std::stringstream args;
@@ -444,6 +419,35 @@ int main(int argc, char** argv) {
     // setup particle stack, and add primary particle
     stack.clear();
 
+    //particle energy
+    HEPEnergyType const E0 = 1_GeV * app["--energy"]->as<double>();
+
+    // direction of the shower in (theta, phi) space   
+    auto const thetaRad = app["--zenith"]->as<double>() / 180. * M_PI;
+    auto const phiRad = app["--azimuth"]->as<double>() / 180. * M_PI;
+
+    // convert Elab to Plab
+    HEPMomentumType P0 = calculate_momentum(E0, mass);
+
+    // convert the momentum to the zenith and azimuth angle of the primary
+    auto const [px, py, pz] =
+            std::make_tuple(P0 * sin(thetaRad) * cos(phiRad), P0 * sin(thetaRad) * sin(phiRad),
+            -P0 * cos(thetaRad));
+            auto plab = MomentumVector(rootCS, {px, py, pz});
+    /* === END: CONSTRUCT PRIMARY PARTICLE === */
+
+    auto const t = -observationHeight * cos(thetaRad) +
+           sqrt(-static_pow<2>(sin(thetaRad) * observationHeight) +
+           static_pow<2>(injectionHeight));
+
+                                                 
+    Point const injectionPos =
+        showerCore + DirectionVector{rootCS,
+        {-sin(thetaRad) * cos(phiRad),
+        -sin(thetaRad) * sin(phiRad), cos(thetaRad)}} *
+        t;           
+
+
     // add the desired particle to the stack
     auto const primaryProperties = std::make_tuple(
         beamCode, calculate_kinetic_energy(plab.getNorm(), get_mass(beamCode)),
@@ -461,3 +465,5 @@ int main(int argc, char** argv) {
   // and finalize the output on disk
   output.endOfLibrary();
 
+  return EXIT_SUCCESS;
+}
