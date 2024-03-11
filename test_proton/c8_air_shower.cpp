@@ -164,14 +164,6 @@ int main(int argc, char** argv) {
       ->default_val(0.3)
       ->check(CLI::Range(0.000001, 1.e13))
       ->group("Config");
-  bool track_neutrinos = false;
-  app.add_flag("--track-neutrinos", track_neutrinos, "switch on tracking of neutrinos")
-      ->group("Config");
-  app.add_option("--neutrino-interaction-type",
-                 "charged (CC) or neutral current (NC) or both")
-      ->default_val("both")
-      ->check(CLI::IsMember({"neutral", "NC", "charged", "CC", "both"}))
-      ->group("Misc.");
   app.add_option("--observation-level",
                  "Height above earth radius of the observation level (in m)")
       ->default_val(0.)
@@ -362,22 +354,6 @@ int main(int argc, char** argv) {
 
   corsika::pythia8::Decay decayPythia;
 
-  // neutrino interactions with pythia (options are: NC, CC)
-  bool NC = false;
-  bool CC = false;
-  if (auto const nuIntStr = app["--neutrino-interaction-type"]->as<std::string>();
-      nuIntStr == "neutral" || nuIntStr == "NC") {
-    NC = true;
-    CC = false;
-  } else if (nuIntStr == "charged" || nuIntStr == "CC") {
-    NC = false;
-    CC = true;
-  } else if (nuIntStr == "both") {
-    NC = true;
-    CC = true;
-  }
-  corsika::pythia8::NeutrinoInteraction neutrinoPrimaryPythia(NC, CC);
-
   // hadronic photon interactions in resonance region
   corsika::sophia::InteractionModel sophia;
 
@@ -432,7 +408,7 @@ int main(int argc, char** argv) {
   output.add("primary", primaryWriter);
 
   // assemble the final process sequence with radio
-  auto sequence = make_sequence(neutrinoPrimaryPythia, hadronSequence,
+  auto sequence = make_sequence(hadronSequence,
                                 decayPythia, emCascade, emContinuous, observationLevel, cut);
 
   /* === END: SETUP PROCESS LIST === */
