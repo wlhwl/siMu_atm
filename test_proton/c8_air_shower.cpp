@@ -314,7 +314,6 @@ int main(int argc, char** argv) {
       app["--observation-level"]->as<double>() * 1_m + constants::EarthRadius::Mean;
   auto const injectionHeight =
       app["--injection-height"]->as<double>() * 1_m + constants::EarthRadius::Mean;
-  Point const showerCore{rootCS, 0_m, 0_m, observationHeight};
   /* === END: CONSTRUCT GEOMETRY === */
 
   std::stringstream args;
@@ -444,30 +443,33 @@ int main(int argc, char** argv) {
     //particle energy
     HEPEnergyType const E0 = 1_eV * e_generator.get_E_classical_distribution();
     //HEPEnergyType const E0 = 1_GeV * app["--eMin"]->as<double>();
-
+    std::cout<<"initial energy: "<<E0<<" So far so good"<<std::endl;
+    
+    Point const showerCore{rootCS, 0_m, 0_m, observationHeight};
     // direction of the shower in (theta, phi) space   
-    auto const thetaRad = app["--zenith"]->as<double>() / 180. * M_PI;
-    auto const phiRad = app["--azimuth"]->as<double>() / 180. * M_PI;
+    auto const cos_thetaRad = rnd->Uniform(0.9,1);
+    auto const sin_thetaRad = sqrt(1 - pow(cos_thetaRad, 2));
+    auto const phiRad = rnd->Uniform(0, 2 * TMath::Pi());
 
     // convert Elab to Plab
     HEPMomentumType P0 = calculate_momentum(E0, mass);
 
     // convert the momentum to the zenith and azimuth angle of the primary
     auto const [px, py, pz] =
-            std::make_tuple(P0 * sin(thetaRad) * cos(phiRad), P0 * sin(thetaRad) * sin(phiRad),
-            -P0 * cos(thetaRad));
+            std::make_tuple(P0 * sin_thetaRad * cos(phiRad), P0 * sin_thetaRad * sin(phiRad),
+            -P0 * cos_thetaRad);
             auto plab = MomentumVector(rootCS, {px, py, pz});
     /* === END: CONSTRUCT PRIMARY PARTICLE === */
 
-    auto const t = -observationHeight * cos(thetaRad) +
-           sqrt(-static_pow<2>(sin(thetaRad) * observationHeight) +
+    auto const t = -observationHeight * cos_thetaRad +
+           sqrt(-static_pow<2>(sin_thetaRad * observationHeight) +
            static_pow<2>(injectionHeight));
 
                                                  
     Point const injectionPos =
         showerCore + DirectionVector{rootCS,
-        {-sin(thetaRad) * cos(phiRad),
-        -sin(thetaRad) * sin(phiRad), cos(thetaRad)}} *
+        {-sin_thetaRad * cos(phiRad),
+        -sin_thetaRad * sin(phiRad), cos_thetaRad}} *
         t;           
 
 
