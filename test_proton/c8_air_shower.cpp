@@ -24,7 +24,6 @@
 #include <corsika/framework/process/SwitchProcessSequence.hpp>
 #include <corsika/framework/random/RNGManager.hpp>
 #include <corsika/framework/utility/CorsikaFenv.hpp>
-#include <corsika/framework/utility/SaveBoostHistogram.hpp>
 
 #include <corsika/modules/writers/EnergyLossWriter.hpp>
 #include <corsika/modules/writers/LongitudinalWriter.hpp>
@@ -49,7 +48,6 @@
 
 #include <corsika/modules/BetheBlochPDG.hpp>
 #include <corsika/modules/Epos.hpp>
-#include <corsika/modules/LongitudinalProfile.hpp>
 #include <corsika/modules/ObservationPlane.hpp>
 #include <corsika/modules/PROPOSAL.hpp>
 #include <corsika/modules/ParticleCut.hpp>
@@ -58,13 +56,7 @@
 #include <corsika/modules/Sibyll.hpp>
 #include <corsika/modules/Sophia.hpp>
 #include <corsika/modules/StackInspector.hpp>
-#include <corsika/modules/thinning/EMThinning.hpp>
-// for ICRC2023
-#ifdef WITH_FLUKA
-#include <corsika/modules/FLUKA.hpp>
-#else
 #include <corsika/modules/UrQMD.hpp>
-#endif
 
 
 #include <corsika/setup/SetupStack.hpp>
@@ -80,6 +72,16 @@
 #include <iomanip>
 #include <limits>
 #include <string>
+
+#include "TRandom3.h"
+#include <TTree.h>
+#include <TFile.h>
+#include "TRandom.h"
+#include "TF1.h"
+#include "TMath.h"
+#include "TString.h"
+#include "TList.h"
+#include "initial_energy_generator.hpp"
 
 using namespace corsika;
 using namespace std;
@@ -109,9 +111,7 @@ long registerRandomStreams(long seed) {
   RNGManager<>::getInstance().registerRandomStream("epos");
   RNGManager<>::getInstance().registerRandomStream("pythia");
   RNGManager<>::getInstance().registerRandomStream("urqmd");
-  RNGManager<>::getInstance().registerRandomStream("fluka");
   RNGManager<>::getInstance().registerRandomStream("proposal");
-  RNGManager<>::getInstance().registerRandomStream("thinning");
   if (seed == 0) {
     std::random_device rd;
     seed = rd();
@@ -149,8 +149,15 @@ int main(int argc, char** argv) {
       ->group("Primary");
   // the remainding options
   app.add_option("-E,--energy", "Primary energy in GeV")
-      ->required()
-      ->check(CLI::PositiveNumber)
+      ->default_val(0.)
+      ->group("Primary");
+  app.add_option("--eMin", "Minimum energy of the inject spectrum [GeV]")
+      ->check(CLI::Range(50.0, 1e8)) 
+      ->default_val(1e5)
+      ->group("Primary");
+  app.add_option("--eMax", "Maximum energy of the inject spectrum [GeV]")
+      ->check(CLI::Range(50.0, 1e10))
+      ->default_val(1e8)
       ->group("Primary");
   app.add_option("-z,--zenith", "Primary zenith angle (deg)")
       ->default_val(0.)
@@ -174,18 +181,10 @@ int main(int argc, char** argv) {
       ->default_val(0.3)
       ->check(CLI::Range(0.000001, 1.e13))
       ->group("Config");
-  bool track_neutrinos = false;
-  app.add_flag("--track-neutrinos", track_neutrinos, "switch on tracking of neutrinos")
-      ->group("Config");
-  app.add_option("--neutrino-interaction-type",
-                 "charged (CC) or neutral current (NC) or both")
-      ->default_val("both")
-      ->check(CLI::IsMember({"neutral", "NC", "charged", "CC", "both"}))
-      ->group("Misc.");
   app.add_option("--observation-level",
                  "Height above earth radius of the observation level (in m)")
       ->default_val(0.)
-      ->check(CLI::Range(-1.e3, 1.e5))
+      ->check(CLI::Range(-5.e3, 1.e5))
       ->group("Config");
   app.add_option("--injection-height",
                  "Height above earth radius of the injection point (in m)")
@@ -209,13 +208,6 @@ int main(int argc, char** argv) {
       ->check(CLI::NonNegativeNumber)
       ->group("Misc.");
   bool force_interaction = false;
-  app.add_flag("--force-interaction", force_interaction,
-               "Force the location of the first interaction.")
-      ->group("Misc.");
-  bool disable_interaction_hists = false;
-  app.add_flag("--disable-interaction-histograms", disable_interaction_hists,
-               "Store interaction histograms")
-      ->group("Misc.");
   app.add_option("-v,--verbosity", "Verbosity level: warn, info, debug, trace.")
       ->default_val("info")
       ->check(CLI::IsMember({"warn", "info", "debug", "trace"}))
@@ -230,24 +222,6 @@ int main(int argc, char** argv) {
       ->default_val(std::pow(10, 1.9)) // 79.4 GeV
       ->check(CLI::NonNegativeNumber)
       ->group("Misc.");
-  app.add_option("--emthin",
-                 "fraction of primary energy at which thinning of EM particles starts")
-      ->default_val(1.e-6)
-      ->check(CLI::Range(0., 1.))
-      ->group("Thinning");
-  app.add_option("--max-weight",
-                 "maximum weight for thinning of EM particles (0 to select Kobal's "
-                 "optimum times 0.5)")
-      ->default_val(0)
-      ->check(CLI::NonNegativeNumber)
-      ->group("Thinning");
-  bool multithin = false;
-  app.add_flag("--multithin", multithin, "keep thinned particles (with weight=0)")
-      ->group("Thinning");
-  app.add_option("--ring", "concentric ring of star shape pattern of antennas")
-      ->default_val(0)
-      ->check(CLI::Range(0, 20))
-      ->group("Radio");
   // parse the command line options into the variables
   CLI11_PARSE(app, argc, argv);
 
@@ -335,62 +309,18 @@ int main(int argc, char** argv) {
   }
   HEPEnergyType mass = get_mass(beamCode);
 
-  // particle energy
-  HEPEnergyType const E0 = 1_GeV * app["--energy"]->as<double>();
-
-  // direction of the shower in (theta, phi) space
-  auto const thetaRad = app["--zenith"]->as<double>() / 180. * M_PI;
-  auto const phiRad = app["--azimuth"]->as<double>() / 180. * M_PI;
-
-  // convert Elab to Plab
-  HEPMomentumType P0 = calculate_momentum(E0, mass);
-
-  // convert the momentum to the zenith and azimuth angle of the primary
-  auto const [px, py, pz] =
-      std::make_tuple(P0 * sin(thetaRad) * cos(phiRad), P0 * sin(thetaRad) * sin(phiRad),
-                      -P0 * cos(thetaRad));
-  auto plab = MomentumVector(rootCS, {px, py, pz});
-  /* === END: CONSTRUCT PRIMARY PARTICLE === */
-
   /* === START: CONSTRUCT GEOMETRY === */
   auto const observationHeight =
-      app["--observation-level"]->as<double>() * 3_m + constants::EarthRadius::Mean;
+      app["--observation-level"]->as<double>() * 1_m + constants::EarthRadius::Mean;
   auto const injectionHeight =
       app["--injection-height"]->as<double>() * 1_m + constants::EarthRadius::Mean;
-  auto const t = -observationHeight * cos(thetaRad) +
-                 sqrt(-static_pow<2>(sin(thetaRad) * observationHeight) +
-                      static_pow<2>(injectionHeight));
-  Point const showerCore{rootCS, 0_m, 0_m, observationHeight};
-  Point const injectionPos =
-      showerCore + DirectionVector{rootCS,
-                                   {-sin(thetaRad) * cos(phiRad),
-                                    -sin(thetaRad) * sin(phiRad), cos(thetaRad)}} *
-                       t;
-
-  // we make the axis much longer than the inj-core distance since the
-  // profile will go beyond the core, depending on zenith angle
-  ShowerAxis const showerAxis{injectionPos, (showerCore - injectionPos) * 1.2, env};
-  auto const dX = 10_g / square(1_cm); // Binning of the writers along the shower axis
   /* === END: CONSTRUCT GEOMETRY === */
-
-  double const emthinfrac = app["--emthin"]->as<double>();
-  double const maxWeight = std::invoke([&]() {
-    if (auto const wm = app["--max-weight"]->as<double>(); wm > 0)
-      return wm;
-    else
-      return 0.5 * emthinfrac * E0 / 1_GeV;
-  });
-  EMThinning thinning{emthinfrac * E0, maxWeight, !multithin};
 
   std::stringstream args;
   for (int i = 0; i < argc; ++i) { args << argv[i] << " "; }
   // create the output manager that we then register outputs with
   auto const outputDir = boost::filesystem::path(app["--dir"]->as<std::string>());
   OutputManager output(app["--filename"]->as<std::string>(), seed, args.str(), outputDir);
-
-  // register energy losses as output
-  EnergyLossWriter dEdX{showerAxis, dX};
-  output.add("energyloss", dEdX);
 
   DynamicInteractionProcess<StackType> heModel;
 
@@ -415,30 +345,13 @@ int main(int argc, char** argv) {
 
   corsika::pythia8::Decay decayPythia;
 
-  // neutrino interactions with pythia (options are: NC, CC)
-  bool NC = false;
-  bool CC = false;
-  if (auto const nuIntStr = app["--neutrino-interaction-type"]->as<std::string>();
-      nuIntStr == "neutral" || nuIntStr == "NC") {
-    NC = true;
-    CC = false;
-  } else if (nuIntStr == "charged" || nuIntStr == "CC") {
-    NC = false;
-    CC = true;
-  } else if (nuIntStr == "both") {
-    NC = true;
-    CC = true;
-  }
-  corsika::pythia8::NeutrinoInteraction neutrinoPrimaryPythia(NC, CC);
-
   // hadronic photon interactions in resonance region
   corsika::sophia::InteractionModel sophia;
 
   HEPEnergyType const emcut = 1_GeV * app["--emcut"]->as<double>();
   HEPEnergyType const hadcut = 1_GeV * app["--hadcut"]->as<double>();
   HEPEnergyType const mucut = 1_GeV * app["--mucut"]->as<double>();
-  ParticleCut<SubWriter<decltype(dEdX)>> cut(emcut, emcut, hadcut, mucut,
-                                             !track_neutrinos, dEdX);
+  ParticleCut cut(emcut, emcut, hadcut, mucut, true);
 
   // tell proposal that we are interested in all energy losses above the particle cut
   set_energy_production_threshold(Code::Electron, std::min({emcut, hadcut, mucut}));
@@ -458,29 +371,10 @@ int main(int argc, char** argv) {
       env, sophia, sibyll->getHadronInteractionModel(), heHadronModelThreshold);
 
   // use BetheBlochPDG for hadronic continuous losses, and proposal otherwise
-  corsika::proposal::ContinuousProcess<SubWriter<decltype(dEdX)>> emContinuousProposal(
-      env, dEdX);
-  BetheBlochPDG<SubWriter<decltype(dEdX)>> emContinuousBethe{dEdX};
-  struct EMHadronSwitch {
-    EMHadronSwitch() = default;
-    bool operator()(const Particle& p) const { return is_hadron(p.getPID()); }
-  };
-  auto emContinuous =
-      make_select(EMHadronSwitch(), emContinuousBethe, emContinuousProposal);
+  corsika::proposal::ContinuousProcess emContinuous(env);
 
-  LongitudinalWriter profile{showerAxis, dX};
-  output.add("profile", profile);
-  LongitudinalProfile<SubWriter<decltype(profile)>> longprof{profile};
-
-// for ICRC2023
-#ifdef WITH_FLUKA
-  corsika::fluka::Interaction leIntModel{env};
-#else
   corsika::urqmd::UrQMD leIntModel{};
-#endif
   InteractionCounter leIntCounted{leIntModel};
-
-  StackInspector<StackType> stackInspect(10000, false, E0);
 
   // assemble all processes into an ordered process list
   struct EnergySwitch {
@@ -493,24 +387,35 @@ int main(int argc, char** argv) {
       make_select(EnergySwitch(heHadronModelThreshold), leIntCounted, heCounted);
 
   // observation plane
-  Plane const obsPlane(showerCore, DirectionVector(rootCS, {0., 0., 1.}));
-  ObservationPlane<TrackingType, ParticleWriterParquet> observationLevel{
-      obsPlane, DirectionVector(rootCS, {1., 0., 0.}),
-      true,   // plane should "absorb" particles
-      false}; // do not print z-coordinate
+  // observation plane sea level
+  Point const seaPlaneCenter = Point(rootCS, {0_m, 0_m, constants::EarthRadius::Mean});
+  Plane const seaPlane(seaPlaneCenter, DirectionVector(rootCS, {0., 0., 1.}));
+  ObservationPlane<TrackingType, ParticleWriterParquet> seaobservationLevel{
+                          seaPlane, DirectionVector(rootCS, {1., 0., 0.}),
+                          false,   // plane should not "absorb" particles
+                          false}; // do not print z-coordinate
   // register ground particle output
-  output.add("particles", observationLevel);
+  output.add("particles_sea_level", seaobservationLevel);
+  
+  PrimaryWriter<TrackingType, ParticleWriterParquet> seaprimaryWriter(seaobservationLevel);
+  output.add("primary_sea", seaprimaryWriter);
+  
+  //observation plane 3km under sea level
+  Point const detPlaneCenter = Point(rootCS, {0_m, 0_m, observationHeight});
+  Plane const detPlane(detPlaneCenter, DirectionVector(rootCS, {0., 0., 1.}));
+  ObservationPlane<TrackingType, ParticleWriterParquet> detobservationLevel{
+                           detPlane, DirectionVector(rootCS, {1., 0., 0.}),
+                           true,   // plane should "absorb" particles
+                           false}; // do not print z-coordinate
+  // register ground particle output
+  output.add("particles_det_level", detobservationLevel);
 
-  PrimaryWriter<TrackingType, ParticleWriterParquet> primaryWriter(observationLevel);
-  output.add("primary", primaryWriter);
-
-  int ring_number{app["--ring"]->as<int>()};
-  auto const radius_{ring_number * 25_m};
-  const int rr_ = static_cast<int>(radius_ / 1_m);
-
-  // assemble the final process sequence with radio
-  auto sequence = make_sequence(stackInspect, neutrinoPrimaryPythia, hadronSequence,
-                                decayPythia, emCascade, emContinuous, longprof, observationLevel, thinning, cut);
+  PrimaryWriter<TrackingType, ParticleWriterParquet> detprimaryWriter(detobservationLevel);
+  output.add("primary_det", detprimaryWriter);
+  
+  // assemble the final process sequence
+  auto sequence = make_sequence(hadronSequence,
+                                decayPythia, emCascade, emContinuous, seaobservationLevel, detobservationLevel, cut);
 
   /* === END: SETUP PROCESS LIST === */
 
@@ -520,18 +425,10 @@ int main(int argc, char** argv) {
   StackType stack;
   Cascade EAS(env, tracking, sequence, output, stack);
 
-  // print our primary parameters all in one place
-  CORSIKA_LOG_INFO("Primary name: {}", beamCode);
-  if (app["--pdg"]->count() > 0) {
-    CORSIKA_LOG_INFO("Primary PDG ID:     {}", app["--pdg"]->as<int>());
-  } else {
-    CORSIKA_LOG_INFO("Primary Z/A:        {}/{}", Z, A);
-  }
-  CORSIKA_LOG_INFO("Primary Energy:     {}", E0);
-  CORSIKA_LOG_INFO("Primary Momentum:   {}", P0);
-  CORSIKA_LOG_INFO("Primary Direction:  {}", plab.getNorm());
-  CORSIKA_LOG_INFO("Point of Injection: {}", injectionPos.getCoordinates());
-  CORSIKA_LOG_INFO("Shower Axis Length: {}", (showerCore - injectionPos).getNorm() * 1.2);
+  double eMin = app["--eMin"]->as<double>() * 1e9;
+  double eMax = app["--eMax"]->as<double>() * 1e9;
+  initial_energy_generator e_generator(eMin, eMax, -2, seed);
+  TRandom3* rnd = new TRandom3(seed==0? 0 : (seed+1) );
 
   // trigger the output manager to open the library for writing
   output.startOfLibrary();
@@ -540,16 +437,41 @@ int main(int argc, char** argv) {
   for (int i_shower = 1; i_shower < nevent + 1; i_shower++) {
 
     CORSIKA_LOG_INFO("Shower {} / {} ", i_shower, nevent);
-
-    // directory for output of interaction histograms
-    string const outdir(app["--filename"]->as<std::string>() + "/interaction_hist");
-    // construct the directory
-    boost::filesystem::create_directories(outdir);
-    string const labHist_file = outdir + "/inthist_lab_" + to_string(i_shower) + ".npz";
-    string const cMSHist_file = outdir + "/inthist_cms_" + to_string(i_shower) + ".npz";
-
     // setup particle stack, and add primary particle
     stack.clear();
+
+    //particle energy
+    HEPEnergyType const E0 = 1_eV * e_generator.get_E_classical_distribution();
+    //HEPEnergyType const E0 = 1_GeV * app["--eMin"]->as<double>();
+    std::cout<<"initial energy: "<<E0<<" So far so good"<<std::endl;
+    
+    Point const showerCore{rootCS, 0_m, 0_m, observationHeight};
+    // direction of the shower in (theta, phi) space   
+    auto const cos_thetaRad = rnd->Uniform(0.9,1);
+    auto const sin_thetaRad = sqrt(1 - pow(cos_thetaRad, 2));
+    auto const phiRad = rnd->Uniform(0, 2 * TMath::Pi());
+
+    // convert Elab to Plab
+    HEPMomentumType P0 = calculate_momentum(E0, mass);
+
+    // convert the momentum to the zenith and azimuth angle of the primary
+    auto const [px, py, pz] =
+            std::make_tuple(P0 * sin_thetaRad * cos(phiRad), P0 * sin_thetaRad * sin(phiRad),
+            -P0 * cos_thetaRad);
+            auto plab = MomentumVector(rootCS, {px, py, pz});
+    /* === END: CONSTRUCT PRIMARY PARTICLE === */
+
+    auto const t = -observationHeight * cos_thetaRad +
+           sqrt(-static_pow<2>(sin_thetaRad * observationHeight) +
+           static_pow<2>(injectionHeight));
+
+                                                 
+    Point const injectionPos =
+        showerCore + DirectionVector{rootCS,
+        {-sin_thetaRad * cos(phiRad),
+        -sin_thetaRad * sin(phiRad), cos_thetaRad}} *
+        t;           
+
 
     // add the desired particle to the stack
     auto const primaryProperties = std::make_tuple(
@@ -557,32 +479,12 @@ int main(int argc, char** argv) {
         plab.normalized(), injectionPos, 0_ns);
     stack.addParticle(primaryProperties);
 
-    // if we want to fix the first location of the shower
-    if (force_interaction) {
-      CORSIKA_LOG_INFO("Fixing first interaction at injection point.");
-      EAS.forceInteraction();
-    }
-
-    primaryWriter.recordPrimary(primaryProperties);
+    seaprimaryWriter.recordPrimary(primaryProperties);
+    detprimaryWriter.recordPrimary(primaryProperties);
 
     // run the shower
     EAS.run();
-
-    HEPEnergyType const Efinal =
-        dEdX.getEnergyLost() + observationLevel.getEnergyGround();
-
-    CORSIKA_LOG_INFO(
-        "total energy budget (GeV): {} (dEdX={} ground={}), "
-        "relative difference (%): {}",
-        Efinal / 1_GeV, dEdX.getEnergyLost() / 1_GeV,
-        observationLevel.getEnergyGround() / 1_GeV, (Efinal / E0 - 1) * 100);
-
-    auto const hists = heCounted.getHistogram() + leIntCounted.getHistogram();
-
-    if (!disable_interaction_hists) {
-      save_hist(hists.labHist(), labHist_file, true);
-      save_hist(hists.CMSHist(), cMSHist_file, true);
-    }
+    std::cout<<"Run with flying colours"<<std::endl;
   }
 
   // and finalize the output on disk
