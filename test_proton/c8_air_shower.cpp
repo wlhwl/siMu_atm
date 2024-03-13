@@ -457,6 +457,9 @@ int main(int argc, char** argv) {
   // trigger the output manager to open the library for writing
   output.startOfLibrary();
 
+  // Record primary particles
+  ofstream primout("Primaries.json");
+
   // loop over each shower
   for (int i_shower = 1; i_shower < nevent + 1; i_shower++) {
 
@@ -502,6 +505,14 @@ int main(int argc, char** argv) {
         beamCode, calculate_kinetic_energy(plab.getNorm(), get_mass(beamCode)),
         plab.normalized(), injectionPos, 0_ns);
     stack.addParticle(primaryProperties);
+    primout << "{\n";
+    primout << "  \"shower\": " << i_shower-1 << ",\n";
+    primout << "  \"pdg\": " << beamCode << ",\n  \"E\": " << E0/1_GeV << ",\n";
+    primout << "  \"nx\": " << px/P0 << ",\n";
+    primout << "  \"ny\": " << py/P0 << ",\n";
+    primout << "  \"nz\": " << pz/P0 << ",\n";
+    primout << "}\n";
+
 
     seaprimaryWriter.recordPrimary(primaryProperties);
     detprimaryWriter.recordPrimary(primaryProperties);
@@ -512,6 +523,7 @@ int main(int argc, char** argv) {
   }
 
   // and finalize the output on disk
+  primout.close();    
   output.endOfLibrary();
 
   return EXIT_SUCCESS;
