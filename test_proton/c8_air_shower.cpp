@@ -88,7 +88,6 @@ using namespace std;
 
 using IMediumType = IMediumPropertyModel<IMagneticFieldModel<IMediumModel>>;
 using EnvType = Environment<IMediumType>;
-using MyHomogeneousModel = MediumPropertyModel<UniformMagneticField<HomogeneousMedium<IMediumType>>>;
 template <typename TInterface>
 using MyExtraEnv = MediumPropertyModel<UniformMagneticField<TInterface>>;
 using StackType = setup::Stack<EnvType>;
@@ -102,6 +101,28 @@ using Particle = StackType::particle_type;
 // example is the most physics-complete one and should be used for full simulations
 // of particle cascades in air
 //
+
+template <typename TEnvironmentInterface, template <typename> typename TExtraEnv,
+        typename TEnvironment, typename... TArgs>
+void create_my_5layer_atmosphere(TEnvironment& env, AtmosphereId const atmId,
+                                 Point const& center, TArgs... args) {
+
+    // construct the atmosphere builder
+    auto builder = make_layered_spherical_atmosphere_builder<
+                   TEnvironmentInterface, TExtraEnv>::create(center, constants::EarthRadius::Mean,
+                   std::forward<TArgs>(args)...);
+    
+    builder.setNuclearComposition({{Code::Hydrogen, Code::Oxygen}, {0.11, 0.89}});
+    builder.addLinearLayer(1.02_g/square(1_cm), 1_cm, 0_km);                      // composition values from AIRES manual
+    builder.setNuclearComposition({{Code::Nitrogen, Code::Oxygen, Code::Argon,},{0.7847, 1. - 0.7847 - 0.0047, 0.0047}});                                           
+    auto const params = atmosphereParameterList[static_cast<uint8_t>(atmId)];
+    for (int i = 0; i < 4; ++i) {
+         builder.addExponentialLayer(params[i].offset, params[i].scaleHeight,
+                                     params[i].altitude);
+    }
+    builder.addLinearLayer(params[4].offset, params[4].scaleHeight, params[4].altitude);
+    builder.assemble(env);
+}
 
 long registerRandomStreams(long seed) {
   RNGManager<>::getInstance().registerRandomStream("cascade");
@@ -268,35 +289,8 @@ int main(int argc, char** argv) {
   EnvType env;
   const CoordinateSystemPtr& rootCS = env.getCoordinateSystem();
   const Point center{rootCS, 0_m, 0_m, 0_m};
-  Point const surface_{rootCS, 0_m, 0_m, constants::EarthRadius::Mean};
-  auto* universe = env.getUniverse().get();
-  MagneticFieldVector const bField{rootCS, 50_uT, 0_T, 0_T};//---water ball
-
-  //water ball
-  const LengthType radius_sea = 6371_km;
-  auto water_comp = NuclearComposition({{Code::Hydrogen, Code::Oxygen}, {2.0/3.0, 1.0/3.0}});
-  auto density = 1.02_g / (1_cm * 1_cm * 1_cm);
-
-  auto water = EnvType::createNode<Sphere>(center, radius_sea);
-  water->setModelProperties<MyHomogeneousModel>(Medium::WaterLiquid, bField, density, water_comp);
-
-  universe->addChild(std::move(water));
-
-  //---air ball
-  create_5layer_atmosphere<IMediumType, MyExtraEnv>(
-          env, AtmosphereId::LinsleyUSStd, center, Medium::AirDry1Atm, bField);
-
-    /* === END: SETUP ENVIRONMENT AND ROOT COORDINATE SYSTEM === */
-
-  ofstream atmout("earth.dat");
-  for (LengthType h = -1000_m; h < 110_km; h += 100_m) {
-    Point const ptest{rootCS, 0_m, 0_m, constants::EarthRadius::Mean + h};
-    auto rho =
-        env.getUniverse()->getContainingNode(ptest)->getModelProperties().getMassDensity(
-            ptest);
-    atmout << h / 1_m << " " << rho / 1_kg * cube(1_m) << "\n";
-  }
-  atmout.close();
+  create_my_5layer_atmosphere<IMediumType, MyExtraEnv>(
+          env, AtmosphereId::LinsleyUSStd, center, Medium::AirDry1Atm, MagneticFieldVector{rootCS, 50_uT, 0_T, 0_T} );
 
   /* === START: CONSTRUCT PRIMARY PARTICLE === */
 

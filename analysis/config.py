@@ -36,7 +36,7 @@ class CorsikaSamples:
 def setup_plots(save_dir:str, plots:dict=None):
     if plots==None:
         plots = {}
-    plots['kinetic_energy'] = PlotContainer(xlabel=r'$E_{\mu}$ [GeV]', ylabel='Counts', logx=True, logy=False, figname=save_dir + 'muon_e_spectrum.pdf', bins=np.logspace(2, 4, 21))
+    plots['nz'] = PlotContainer(xlabel='zenith angle', ylabel='Counts', logx=False, logy=False, figname=save_dir + 'muon_zenith_ang_distribution.pdf', bins=np.linspace(0, 3.14, 21))
     return plots
 
 
