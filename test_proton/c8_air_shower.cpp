@@ -314,8 +314,8 @@ int main(int argc, char** argv) {
   /* === START: CONSTRUCT GEOMETRY === */
   auto const observationHeight =
       app["--observation-level"]->as<double>() * 1_m + constants::EarthRadius::Mean;
-  auto const injectionHeight =
-      app["--injection-height"]->as<double>() * 1_m + constants::EarthRadius::Mean;
+  auto const atmosphere_height = app["--injection-height"]->as<double>() * 1_m;
+  auto const injectionHeight = atmosphere_height + constants::EarthRadius::Mean;
   /* === END: CONSTRUCT GEOMETRY === */
 
   std::stringstream args;
@@ -465,36 +465,47 @@ int main(int argc, char** argv) {
     
     Point const showerCore{rootCS, 0_m, 0_m, observationHeight};
     // direction of the shower in (theta, phi) space   
-    auto const cos_thetaRad = rnd->Uniform(0.9,1);
-    auto const sin_thetaRad = sqrt(1 - pow(cos_thetaRad, 2));
-    auto const phiRad = rnd->Uniform(0, 2 * TMath::Pi());
+    auto const cos_theta = rnd->Uniform(0.9,1);
+    auto const sin_theta = sqrt(1 - pow(cos_theta, 2));
+    auto const phi = rnd->Uniform(0, 2 * TMath::Pi());
+    DirectionVector inject_direction(rootCS, {-sin_theta*cos(phi), -sin_theta*sin(phi), -cos_theta});
+    std::cout<<"inject direction: "<<inject_direction<<std::endl;
+    std::cout<<"So far so good"<<std::endl;
 
-    // convert Elab to Plab
-    HEPMomentumType P0 = calculate_momentum(E0, mass);
+    double geant4_halfZ = 285, geant4_radius = 2000;
+    double R_circle = sqrt(geant4_halfZ*geant4_halfZ + geant4_radius*geant4_radius);
 
-    // convert the momentum to the zenith and azimuth angle of the primary
-    auto const [px, py, pz] =
-            std::make_tuple(P0 * sin_thetaRad * cos(phiRad), P0 * sin_thetaRad * sin(phiRad),
-            -P0 * cos_thetaRad);
-            auto plab = MomentumVector(rootCS, {px, py, pz});
+    DirectionVector tagent{rootCS, {0, 0, 1}};
+    if (abs(inject_direction.getZ(rootCS)) < 0.99)
+        tagent = DirectionVector{rootCS, {-inject_direction.getY(rootCS), inject_direction.getX(rootCS), 0}};
+    else
+        tagent = DirectionVector{rootCS, {-inject_direction.getZ(rootCS), 0, inject_direction.getX(rootCS)}};
+
+    tagent = tagent / tagent.getNorm();
+    DirectionVector bitagent = inject_direction.cross(tagent);
+    double phi_ = rnd->Uniform(0, 2*TMath::Pi());
+    LengthType radius = R_circle * sqrt(rnd->Uniform(0, 1))*1_m;
+    Point const destPoint = detPlaneCenter + cos(phi_) * radius * tagent + sin(phi_) * radius * bitagent;
+    LengthType dest_x = destPoint.getX(rootCS), dest_y = destPoint.getY(rootCS), dest_z = destPoint.getZ(rootCS);
+
+    auto getInjectorLength = [atmosphere_height, dest_z, cos_theta](){
+        double l1 = (dest_z)/1_m;
+        double l2 = (atmosphere_height+constants::EarthRadius::Mean) / 1_m;
+        double c = l1*l1 - l2*l2;
+        double b = 2 * l1 * cos_theta;
+        return 1./2 * (-b + sqrt(b*b - 4*c)) * 1_m;
+    };
+    auto injectorLength = getInjectorLength();
+    Point const injectorPos = Point(rootCS, {destPoint.getX(rootCS)+injectorLength*sin_theta*cos(phi), destPoint.getY(rootCS)+injectorLength*sin_theta*sin(phi), dest_z+injectorLength*cos_theta});
+
+    std::cout<<"inject position: "<<injectorPos<<std::endl;
+    std::cout<<"So far so good"<<std::endl;
     /* === END: CONSTRUCT PRIMARY PARTICLE === */
-
-    auto const t = -observationHeight * cos_thetaRad +
-           sqrt(-static_pow<2>(sin_thetaRad * observationHeight) +
-           static_pow<2>(injectionHeight));
-
-                                                 
-    Point const injectionPos =
-        showerCore + DirectionVector{rootCS,
-        {-sin_thetaRad * cos(phiRad),
-        -sin_thetaRad * sin(phiRad), cos_thetaRad}} *
-        t;           
-
 
     // add the desired particle to the stack
     auto const primaryProperties = std::make_tuple(
-        beamCode, calculate_kinetic_energy(plab.getNorm(), get_mass(beamCode)),
-        plab.normalized(), injectionPos, 0_ns);
+        beamCode, E0 - get_mass(beamCode),
+        inject_direction, injectorPos, 0_ns);
     stack.addParticle(primaryProperties);
 
     seaprimaryWriter.recordPrimary(primaryProperties);
