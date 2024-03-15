@@ -12,6 +12,7 @@ public:
         rnd = new TRandom3(seed);
         f_classical_logE = new TF1("classical logE",classical_logE_distribution, log(energy_min), log(energy_max), 1);
         f_classical_logE->SetParameter(0, power_index);
+        f_logE_minus1 = new TF1("(logE)^-1","1/x",log(energy_min), log(energy_max));
     }
 
     ~initial_energy_generator(){
@@ -29,6 +30,11 @@ public:
         return pow(10,power);
     }
 
+    double get_E_minus1(){
+        double logE = f_logE_minus1->GetRandom(log(energy_min), log(energy_max));
+        return exp(logE);
+    }
+
 private:
     double energy_min;
     double energy_max;
@@ -36,6 +42,7 @@ private:
     double power_index;
     TRandom3* rnd;
     TF1* f_classical_logE;
+    TF1* f_logE_minus1;
 
     static Double_t classical_logE_distribution(Double_t *x, Double_t *par){
         // // energy distribution: pow(E,-2.7) for E<3e15eV; pow(E,-3.1) otherwise

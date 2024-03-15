@@ -451,6 +451,9 @@ int main(int argc, char** argv) {
   // trigger the output manager to open the library for writing
   output.startOfLibrary();
 
+  // Record primary particles
+  ofstream primout("Primaries.json");
+
   // loop over each shower
   for (int i_shower = 1; i_shower < nevent + 1; i_shower++) {
 
@@ -459,7 +462,7 @@ int main(int argc, char** argv) {
     stack.clear();
 
     //particle energy
-    HEPEnergyType const E0 = 1_eV * e_generator.get_E_classical_distribution();
+    HEPEnergyType const E0 = 1_eV * e_generator.get_E_minus1();
     //HEPEnergyType const E0 = 1_GeV * app["--eMin"]->as<double>();
     std::cout<<"initial energy: "<<E0<<" So far so good"<<std::endl;
     
@@ -469,8 +472,8 @@ int main(int argc, char** argv) {
     auto const sin_theta = sqrt(1 - pow(cos_theta, 2));
     auto const phi = rnd->Uniform(0, 2 * TMath::Pi());
     DirectionVector inject_direction(rootCS, {-sin_theta*cos(phi), -sin_theta*sin(phi), -cos_theta});
-    std::cout<<"inject direction: "<<inject_direction<<std::endl;
-    std::cout<<"So far so good"<<std::endl;
+    //std::cout<<"inject direction: "<<inject_direction<<std::endl;
+    //std::cout<<"So far so good"<<std::endl;
 
     double geant4_halfZ = 285, geant4_radius = 2000;
     double R_circle = sqrt(geant4_halfZ*geant4_halfZ + geant4_radius*geant4_radius);
@@ -498,8 +501,8 @@ int main(int argc, char** argv) {
     auto injectorLength = getInjectorLength();
     Point const injectorPos = Point(rootCS, {destPoint.getX(rootCS)+injectorLength*sin_theta*cos(phi), destPoint.getY(rootCS)+injectorLength*sin_theta*sin(phi), dest_z+injectorLength*cos_theta});
 
-    std::cout<<"inject position: "<<injectorPos<<std::endl;
-    std::cout<<"So far so good"<<std::endl;
+    //std::cout<<"inject position: "<<injectorPos<<std::endl;
+    //std::cout<<"So far so good"<<std::endl;
     /* === END: CONSTRUCT PRIMARY PARTICLE === */
 
     // add the desired particle to the stack
@@ -507,6 +510,14 @@ int main(int argc, char** argv) {
         beamCode, E0 - get_mass(beamCode),
         inject_direction, injectorPos, 0_ns);
     stack.addParticle(primaryProperties);
+
+    primout << "{\n";
+    primout << "  \"shower\": " << i_shower-1 << ",\n";
+    primout << "  \"pdg\": " << beamCode << ",\n  \"E\": " << E0/1_GeV << ",\n";
+    primout << "  \"nx\": " << -sin_theta*cos(phi)<< ",\n";
+    primout << "  \"ny\": " << -sin_theta*sin(phi) << ",\n";
+    primout << "  \"nz\": " << -cos_theta << ",\n";
+    primout << "}\n";
 
     seaprimaryWriter.recordPrimary(primaryProperties);
     detprimaryWriter.recordPrimary(primaryProperties);
@@ -516,6 +527,7 @@ int main(int argc, char** argv) {
     std::cout<<"Run with flying colours"<<std::endl;
   }
 
+  primout.close();
   // and finalize the output on disk
   output.endOfLibrary();
 
