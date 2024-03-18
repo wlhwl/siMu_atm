@@ -58,7 +58,6 @@
 #include <corsika/modules/StackInspector.hpp>
 #include <corsika/modules/UrQMD.hpp>
 
-
 #include <corsika/setup/SetupStack.hpp>
 #include <corsika/setup/SetupTrajectory.hpp>
 
@@ -200,6 +199,10 @@ int main(int argc, char** argv) {
       ->group("Config");
   app.add_option("--mucut", "Min. kin. energy of muons in tracking (GeV)")
       ->default_val(0.3)
+      ->check(CLI::Range(0.000001, 1.e13))
+      ->group("Config");
+  app.add_option("--neucut", "Min. kin. energy of neutrinos in tracking (GeV)")
+      ->default_val(0.1)
       ->check(CLI::Range(0.000001, 1.e13))
       ->group("Config");
   bool track_neutrinos = false;
@@ -369,6 +372,7 @@ int main(int argc, char** argv) {
   HEPEnergyType const emcut = 1_GeV * app["--emcut"]->as<double>();
   HEPEnergyType const hadcut = 1_GeV * app["--hadcut"]->as<double>();
   HEPEnergyType const mucut = 1_GeV * app["--mucut"]->as<double>();
+  HEPEnergyType const neucut = 1_GeV * app["--neucut"]->as<double>();
   ParticleCut cut(emcut, emcut, hadcut, mucut, !track_neutrinos);
 
   // tell proposal that we are interested in all energy losses above the particle cut
@@ -380,6 +384,7 @@ int main(int argc, char** argv) {
   set_energy_production_threshold(Code::TauMinus, std::min({emcut, hadcut, mucut}));
   set_energy_production_threshold(Code::TauPlus, std::min({emcut, hadcut, mucut}));
 
+  
   // energy threshold for high energy hadronic model. Affects LE/HE switch for
   // hadron interactions and the hadronic photon model in proposal
   HEPEnergyType const heHadronModelThreshold =
@@ -413,10 +418,7 @@ int main(int argc, char** argv) {
                           false,   // plane should not "absorb" particles
                           false}; // do not print z-coordinate
   // register ground particle output
-  output.add("particles_sea_level", seaobservationLevel);
-  
-  PrimaryWriter<TrackingType, ParticleWriterParquet> seaprimaryWriter(seaobservationLevel);
-  output.add("primary_sea", seaprimaryWriter);
+  //output.add("particles_sea_level", seaobservationLevel);
   
   //observation plane 3km under sea level
   Point const detPlaneCenter = Point(rootCS, {0_m, 0_m, observationHeight});
@@ -428,8 +430,6 @@ int main(int argc, char** argv) {
   // register ground particle output
   output.add("particles_det_level", detobservationLevel);
 
-  PrimaryWriter<TrackingType, ParticleWriterParquet> detprimaryWriter(detobservationLevel);
-  output.add("primary_det", detprimaryWriter);
   
   // assemble the final process sequence
   auto sequence = make_sequence(neutrinoPrimaryPythia, hadronSequence,
@@ -472,8 +472,6 @@ int main(int argc, char** argv) {
     auto const sin_theta = sqrt(1 - pow(cos_theta, 2));
     auto const phi = rnd->Uniform(0, 2 * TMath::Pi());
     DirectionVector inject_direction(rootCS, {-sin_theta*cos(phi), -sin_theta*sin(phi), -cos_theta});
-    //std::cout<<"inject direction: "<<inject_direction<<std::endl;
-    //std::cout<<"So far so good"<<std::endl;
 
     double geant4_halfZ = 285, geant4_radius = 2000;
     double R_circle = sqrt(geant4_halfZ*geant4_halfZ + geant4_radius*geant4_radius);
@@ -501,8 +499,6 @@ int main(int argc, char** argv) {
     auto injectorLength = getInjectorLength();
     Point const injectorPos = Point(rootCS, {destPoint.getX(rootCS)+injectorLength*sin_theta*cos(phi), destPoint.getY(rootCS)+injectorLength*sin_theta*sin(phi), dest_z+injectorLength*cos_theta});
 
-    //std::cout<<"inject position: "<<injectorPos<<std::endl;
-    //std::cout<<"So far so good"<<std::endl;
     /* === END: CONSTRUCT PRIMARY PARTICLE === */
 
     // add the desired particle to the stack
@@ -518,9 +514,6 @@ int main(int argc, char** argv) {
     primout << "  \"ny\": " << -sin_theta*sin(phi) << ",\n";
     primout << "  \"nz\": " << -cos_theta << ",\n";
     primout << "}\n";
-
-    seaprimaryWriter.recordPrimary(primaryProperties);
-    detprimaryWriter.recordPrimary(primaryProperties);
 
     // run the shower
     EAS.run();
