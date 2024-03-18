@@ -202,6 +202,10 @@ int main(int argc, char** argv) {
       ->default_val(0.3)
       ->check(CLI::Range(0.000001, 1.e13))
       ->group("Config");
+  app.add_option("--nucut", "Min. kin. energy of neutrinos in tracking (GeV)")
+      ->default_val(0.3)
+      ->check(CLI::Range(0.000001, 1.e13))
+      ->group("Config");  
   bool track_neutrinos = false;
   app.add_flag("--track-neutrinos", track_neutrinos, "switch on tracking of neutrinos")
       ->group("Config");
@@ -369,6 +373,7 @@ int main(int argc, char** argv) {
   HEPEnergyType const emcut = 1_GeV * app["--emcut"]->as<double>();
   HEPEnergyType const hadcut = 1_GeV * app["--hadcut"]->as<double>();
   HEPEnergyType const mucut = 1_GeV * app["--mucut"]->as<double>();
+  HEPEnergyType const nucut = 1_GeV * app["--nucut"]->as<double>();
   ParticleCut cut(emcut, emcut, hadcut, mucut, !track_neutrinos);
 
   // tell proposal that we are interested in all energy losses above the particle cut
@@ -379,6 +384,13 @@ int main(int argc, char** argv) {
   set_energy_production_threshold(Code::MuPlus, std::min({emcut, hadcut, mucut}));
   set_energy_production_threshold(Code::TauMinus, std::min({emcut, hadcut, mucut}));
   set_energy_production_threshold(Code::TauPlus, std::min({emcut, hadcut, mucut}));
+  
+  set_kinetic_energy_propagation_threshold(Code::NuE, nucut);
+  set_kinetic_energy_propagation_threshold(Code::NuEBar, nucut);
+  set_kinetic_energy_propagation_threshold(Code::NuMu, nucut);
+  set_kinetic_energy_propagation_threshold(Code::NuMuBar, nucut);
+  set_kinetic_energy_propagation_threshold(Code::NuTau, nucut);
+  set_kinetic_energy_propagation_threshold(Code::NuTauBar, nucut);
 
   // energy threshold for high energy hadronic model. Affects LE/HE switch for
   // hadron interactions and the hadronic photon model in proposal
@@ -413,10 +425,10 @@ int main(int argc, char** argv) {
                           false,   // plane should not "absorb" particles
                           false}; // do not print z-coordinate
   // register ground particle output
-  output.add("particles_sea_level", seaobservationLevel);
+  //output.add("particles_sea_level", seaobservationLevel);
   
-  PrimaryWriter<TrackingType, ParticleWriterParquet> seaprimaryWriter(seaobservationLevel);
-  output.add("primary_sea", seaprimaryWriter);
+  //PrimaryWriter<TrackingType, ParticleWriterParquet> seaprimaryWriter(seaobservationLevel);
+  //output.add("primary_sea", seaprimaryWriter);
   
   //observation plane 3km under sea level
   Point const detPlaneCenter = Point(rootCS, {0_m, 0_m, observationHeight});
@@ -428,12 +440,12 @@ int main(int argc, char** argv) {
   // register ground particle output
   output.add("particles_det_level", detobservationLevel);
 
-  PrimaryWriter<TrackingType, ParticleWriterParquet> detprimaryWriter(detobservationLevel);
-  output.add("primary_det", detprimaryWriter);
+  //PrimaryWriter<TrackingType, ParticleWriterParquet> detprimaryWriter(detobservationLevel);
+  //output.add("primary_det", detprimaryWriter);
   
   // assemble the final process sequence
   auto sequence = make_sequence(neutrinoPrimaryPythia, hadronSequence,
-                                decayPythia, emCascade, emContinuous, seaobservationLevel, detobservationLevel, cut);
+                                decayPythia, emCascade, emContinuous, /*seaobservationLevel,*/ detobservationLevel, cut);
 
   /* === END: SETUP PROCESS LIST === */
 
@@ -519,8 +531,8 @@ int main(int argc, char** argv) {
     primout << "  \"nz\": " << -cos_theta << ",\n";
     primout << "}\n";
 
-    seaprimaryWriter.recordPrimary(primaryProperties);
-    detprimaryWriter.recordPrimary(primaryProperties);
+    //seaprimaryWriter.recordPrimary(primaryProperties);
+    //detprimaryWriter.recordPrimary(primaryProperties);
 
     // run the shower
     EAS.run();
