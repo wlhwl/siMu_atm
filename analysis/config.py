@@ -5,7 +5,7 @@ from utils import *
 # import yaml
 
 class CorsikaSamples:
-    def __init__(self, path_list, num_events_list, mc_power_index, energy_range, costh_range, sample_cylinder_surface, obs_level='sea_level') -> None:
+    def __init__(self, path_list, num_events_list, mc_power_index, energy_range, costh_range, sample_cylinder_surface, obs_level='sea_level', radius_cut = 2000) -> None:
         self.path_list = path_list
         self.num_events_list = num_events_list
         self.mc_power_index = mc_power_index
@@ -13,6 +13,8 @@ class CorsikaSamples:
         self.costh_range = costh_range
         self.costh_range = costh_range
         self.sample_cylinder_surface = sample_cylinder_surface
+        self.radius_cut = radius_cut
+        
         if (obs_level!='sea_level') and (obs_level!='det_level'):
             raise Exception('obs_level should be either "sea_level" or "det_level", not {}'.format(obs_level))
         self.obs_level = obs_level
@@ -41,8 +43,8 @@ def setup_plots(save_dir:str, plots:dict=None):
 
 
 class GlobalSetting:
-    path_list = glob.glob("/lustre/neutrino/huangweilun/atmos_muon/COR_atm_muon/test_proton/no_neu_bin/out_cut100/part?/my_shower/")
-    corsika_samples = CorsikaSamples(path_list=path_list, num_events_list=[200 for i in path_list], mc_power_index=-2,\
+    path_list = glob.glob("/lustre/neutrino/huangweilun/atmos_muon/COR_atm_muon/test_proton/out_no_sea_level_obs/part?/my_shower/")
+    corsika_samples = CorsikaSamples(path_list=path_list, num_events_list=[1000 for i in path_list], mc_power_index=-2,\
              energy_range=[1e9, 1e10], costh_range=[0.9, 1], sample_cylinder_surface=math.pi*2000**2)
     
     save_dir = './save/'

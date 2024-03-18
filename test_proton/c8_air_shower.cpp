@@ -518,13 +518,12 @@ int main(int argc, char** argv) {
         beamCode, E0 - get_mass(beamCode),
         inject_direction, injectorPos, 0_ns);
     stack.addParticle(primaryProperties);
-
     primout << "{\n";
     primout << "  \"shower\": " << i_shower-1 << ",\n";
     primout << "  \"pdg\": " << beamCode << ",\n  \"E\": " << E0/1_GeV << ",\n";
-    primout << "  \"nx\": " << -sin_theta*cos(phi)<< ",\n";
-    primout << "  \"ny\": " << -sin_theta*sin(phi) << ",\n";
-    primout << "  \"nz\": " << -cos_theta << ",\n";
+    primout << "  \"nx\": " << px/P0 << ",\n";
+    primout << "  \"ny\": " << py/P0 << ",\n";
+    primout << "  \"nz\": " << pz/P0 << ",\n";
     primout << "}\n";
 
     //seaprimaryWriter.recordPrimary(primaryProperties);
@@ -536,6 +535,7 @@ int main(int argc, char** argv) {
 
   primout.close();
   // and finalize the output on disk
+  primout.close();    
   output.endOfLibrary();
 
   return EXIT_SUCCESS;
