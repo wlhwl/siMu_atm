@@ -10,6 +10,7 @@ public:
     initial_energy_generator(double e_min, double e_max, double power_index, unsigned int r_seed)
         : energy_min(e_min), energy_max(e_max), seed(r_seed), power_index(power_index){
         rnd = new TRandom3(seed);
+        gRandom->SetSeed(seed);
         f_classical_logE = new TF1("classical logE",classical_logE_distribution, log(energy_min), log(energy_max), 1);
         f_classical_logE->SetParameter(0, power_index);
         f_logE_minus1 = new TF1("(logE)^-1","1/x",log(energy_min), log(energy_max));
