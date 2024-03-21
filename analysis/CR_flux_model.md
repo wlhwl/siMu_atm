@@ -9,4 +9,4 @@ $$\frac{dN}{d\ln E}=\phi_i(E) = \sum^3_{j=1}a_{i,j}E^{-\gamma_{i,j}}\times \exp[
 | Pop. 3:<br/>$R_c =1.3EV$ |                 1.4<br/>1.4                 |               |             |             | 0.025<br/>1.2 |             |             |
 - For 100GeV - 100TeV proton:
 	- simulation spectrum: $1/E$
-	- reweight: $\phi_p/E\cdot A/[E\cdot (E_{max} - E_{min})]$ ,$A=1/\int_{E_{min}}^{E_{max}}\frac{1}{E} dE$
+	- reweight: $\phi_p/E\cdot A/[E\cdot (E_{max} - E_{min})]$ , $A=1/\int_{E_{min}}^{E_{max}}\frac{1}{E} dE$
