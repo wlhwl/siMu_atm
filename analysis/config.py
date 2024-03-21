@@ -1,3 +1,4 @@
+import numpy as np
 import pandas as pd
 import math
 import glob
@@ -29,7 +30,7 @@ class CorsikaSamples:
             cur_pars = pd.read_parquet(self.pars_paths[ibatch])
             prim = pd.read_json(self.json_list[ibatch])
             merge = cur_pars.merge(prim, on='shower', how='left')
-            cur_pars['primary'] = merge['E']
+            cur_pars['E'] = merge['E']
             cur_pars.shower += shower_id_start
             shower_id_start += self.num_events_list[ibatch]
             particles.append(cur_pars)
@@ -59,7 +60,7 @@ def weight(particles, weighter, emin, emax):
 def setup_plots(save_dir:str, plots:dict=None):
     if plots==None:
         plots = {}
-    plots['E'] = PlotContainer(xlabel='primary energy(GeV)', ylabel='Counts', logx=False, logy=False, figname=save_dir + 'primary_distribution_E.jpg', bins=np.linspace(100,100000,100))
+    plots['E'] = PlotContainer(xlabel='primary energy(GeV)', ylabel='Counts', logx=True, logy=True, figname=save_dir + 'muon_prim_e_dis.jpg', bins=np.logspace(2,5,30))
     return plots
 
 class GlobalSetting:

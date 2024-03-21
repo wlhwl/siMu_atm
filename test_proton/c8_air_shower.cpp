@@ -466,7 +466,6 @@ int main(int argc, char** argv) {
   // Record primary particles
   ofstream primout("Primaries.json");
   primout << "[\n";
-
   // loop over each shower
   for (int i_shower = 1; i_shower < nevent + 1; i_shower++) {
 
@@ -522,7 +521,7 @@ int main(int argc, char** argv) {
 
     primout << "{\n";
     primout << "  \"shower\": " << i_shower-1 << ",\n";
-    primout << "  \"pdg\": " << beamCode << ",\n  \"E\": " << E0/1_GeV << ",\n";
+    primout << "  \"pdg\": " << get_PDG(beamCode) << ",\n  \"E0\": " << E0/1_GeV << ",\n";
     primout << "  \"nx\": " << -sin_theta*cos(phi)<< ",\n";
     primout << "  \"ny\": " << -sin_theta*sin(phi) << ",\n";
     primout << "  \"nz\": " << -cos_theta << "\n";
@@ -530,13 +529,14 @@ int main(int argc, char** argv) {
         primout << "}\n";
     else
         primout << "},\n";
-
+    
     //seaprimaryWriter.recordPrimary(primaryProperties);
     //detprimaryWriter.recordPrimary(primaryProperties);
     // run the shower
     EAS.run();
     std::cout<<"Run with flying colours"<<std::endl;
   }
+  
   primout << "]";
   primout.close();
   // and finalize the output on disk
