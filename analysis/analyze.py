@@ -1,5 +1,4 @@
 import math
-
 from config import *
 from utils import *
 import numpy as np
@@ -34,7 +33,6 @@ if __name__ == '__main__':
     ##mupage
     mp_particles = myset.mupage_samples.muons
     mp_weight = 1 / myset.mupage_samples.livetime / (math.pi * myset.mupage_samples.extended_can_radius**2)#
-
 
     plots = myset.plots
     variables = list(plots.keys())
