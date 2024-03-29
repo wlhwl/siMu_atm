@@ -537,7 +537,7 @@ int main(int argc, char** argv) {
 
     primout << "{\n";
     primout << "  \"shower\": " << i_shower-1 << ",\n";
-    primout << "  \"pdg\": " << beamCode << ",\n  \"E\": " << E0/1_GeV << ",\n";
+    primout << "  \"pdg\": " << get_PDG(beamCode) << ",\n  \"E0\": " << E0/1_GeV << ",\n";
     primout << "  \"nx\": " << -sin_theta*cos(phi)<< ",\n";
     primout << "  \"ny\": " << -sin_theta*sin(phi) << ",\n";
     primout << "  \"nz\": " << -cos_theta << "\n";
