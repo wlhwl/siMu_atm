@@ -26,8 +26,10 @@ if __name__ == '__main__':
     myset = GlobalSetting()
     prim_num = np.sum(myset.corsika_samples.num_events_list)
     #get particles
-    cor_particles = myset.corsika_samples.SelectedParticles
-    cor_particles = cor_particles.loc[cor_particles.z == 500]
+    cor_particles = myset.corsika_samples.primaries
+    cor_particles['kinetic_energy'] = cor_particles.E
+    # cor_particles = myset.corsika_samples.SelectedParticles
+    # cor_particles = cor_particles.loc[cor_particles.z == 500]
     # weight
     cor_particles_w = weight(cor_particles,Weighter,prim_num,myset.corsika_samples.energy_range[0],myset.corsika_samples.energy_range[1])
     ##mupage
@@ -50,7 +52,13 @@ if __name__ == '__main__':
         hist_mp = hist_mp / np.diff(bin_mp)
         # pc.ax.plot((bin_w[1:]+bin_w[:-1])/2,hist_w,linestyle='--',label='sim')
         pc.ax.errorbar((bins[1:]+bins[:-1])/2,hist_w,yerr=(hist_w/np.sqrt(hist_raw)), label="p 1-100TeV")
-        pc.ax.plot((bins[1:]+bins[:-1])/2,hist_mp)
+        # pc.ax.plot((bins[1:]+bins[:-1])/2,hist_mp)
+        energy = np.logspace(3, 5, 20)
+        para_table = [[120*10**3,7000,1.661,1],[4*10**6,150,1.4,1],[1.3*10**9,1.4,1.4,1]]
+        dnde=0
+        for i in range(0,3):
+            dnde += calculate_dnde(energy,para_table[i][0],para_table[i][1],para_table[i][2],para_table[i][3])
+        pc.ax.plot(energy, dnde * energy)
         pc.ax.legend()
         pc.apply_settings()
         pc.savefig()
