@@ -77,7 +77,12 @@ class CorsikaSamples:
         shower_id_start = 0
         for ibatch in range(len(self.pars_paths)):
             cur_pars = pd.read_parquet(self.pars_paths[ibatch])
-            prim = pd.read_json(self.json_list[ibatch])
+            file_path = self.json_list[ibatch]
+            with open(file_path, 'r') as file:
+                file_content = file.read()
+            file_content_fixed = file_content.replace('p+', '"p+"')
+            prim =  pd.read_json(file_content_fixed)
+            # prim = pd.read_json(self.json_list[ibatch])
             merge = cur_pars.merge(prim, on='shower', how='left')
             cur_pars['E'] = merge['E']
             cur_pars.shower += shower_id_start
@@ -89,7 +94,12 @@ class CorsikaSamples:
         prims=[]
         shower_id_start = 0
         for ibatch in range(len(self.json_list)):
-            cur_prims = pd.read_json(self.json_list[ibatch])
+            file_path = self.json_list[ibatch]
+            with open(file_path, 'r') as file:
+                file_content = file.read()
+            file_content_fixed = file_content.replace('p+', '"p+"')
+            cur_prims =  pd.read_json(file_content_fixed)
+            # cur_prims = pd.read_json(self.json_list[ibatch])
             cur_prims.shower += shower_id_start
             shower_id_start += self.num_events_list[ibatch]
             prims.append(cur_prims)
@@ -111,13 +121,13 @@ def setup_plots(save_dir:str, plots:dict=None):
     return plots
 
 class GlobalSetting:
-    cor_path_list = glob.glob("/media/ineffablord/T7/siMu_atm/data/p/out_box_1-100T_full_sky/part?*/my_shower/")
-    cor_json_list = glob.glob("/media/ineffablord/T7/siMu_atm/data/p/out_box_1-100T_full_sky/part?*/Primaries.json")
+    cor_path_list = glob.glob("/lustre/neutrino/huangweilun/atmos_muon/COR_atm_muon/test_proton/bin/p/out_1-100T/part?*/my_shower/")
+    cor_json_list = glob.glob("/lustre/neutrino/huangweilun/atmos_muon/COR_atm_muon/test_proton/bin/p/out_1-100T/part?*/Primaries.json")
     corsika_samples = CorsikaSamples(path_list=cor_path_list,  josn_list=cor_json_list,
                                      num_events_list=[5000 for i in cor_path_list],
-                                     energy_range=[1e2, 1e5], costh_range=[0, 1], sample_cube_surface=5000*16000,
+                                     energy_range=[1e3, 1e5], costh_range=[0, 1], sample_cube_surface=5000*16000,
                                      select_id=[13,-13])
-    mp_path_list = glob.glob("/media/ineffablord/T7/siMu_atm/data/mupage/evt/*.evt")
+    mp_path_list = glob.glob("/lustre/collider/mocen/project/hailing/atmos_muon/generator_workspace/evt/*.evt")
     mupage_samples = MupageSamples(path_list=mp_path_list, energy_range=(1, 1e5), costh_range=(0,math.cos(85)), extended_can_radius=300)
 
     save_dir = './test_weight/'
