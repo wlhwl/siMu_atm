@@ -17,6 +17,7 @@
 #include <corsika/framework/core/Logging.hpp>
 #include <corsika/framework/core/PhysicalUnits.hpp>
 #include <corsika/framework/geometry/PhysicalGeometry.hpp>
+#include <corsika/framework/geometry/Box.hpp>
 #include <corsika/framework/geometry/Plane.hpp>
 #include <corsika/framework/geometry/Sphere.hpp>
 #include <corsika/framework/process/DynamicInteractionProcess.hpp>
@@ -29,6 +30,7 @@
 #include <corsika/modules/writers/LongitudinalWriter.hpp>
 #include <corsika/modules/writers/PrimaryWriter.hpp>
 #include <corsika/modules/writers/SubWriter.hpp>
+#include <corsika/modules/ObservationVolume.hpp>
 #include <corsika/output/OutputManager.hpp>
 
 #include <corsika/media/CORSIKA7Atmospheres.hpp>
@@ -182,6 +184,14 @@ int main(int argc, char** argv) {
   app.add_option("-z,--zenith", "Primary zenith angle (deg)")
       ->default_val(0.)
       ->check(CLI::Range(0., 90.))
+      ->group("Primary");
+  app.add_option("--zenithmax", "Primary max cos zenith angle")
+      ->default_val(1.)
+      ->check(CLI::Range(0., 1.1))
+      ->group("Primary");
+  app.add_option("--zenithmin", "Primary min cos zenith angle")
+      ->default_val(0.)
+      ->check(CLI::Range(-0.1, 1.))
       ->group("Primary");
   app.add_option("-a,--azimuth", "Primary azimuth angle (deg)")
       ->default_val(0.)
@@ -364,7 +374,7 @@ int main(int argc, char** argv) {
      NC = true;
      CC = true;
   }
-  corsika::pythia8::NeutrinoInteraction neutrinoPrimaryPythia(NC, CC);
+  //corsika::pythia8::NeutrinoInteraction neutrinoPrimaryPythia(NC, CC);
 
   // hadronic photon interactions in resonance region
   corsika::sophia::InteractionModel sophia;
@@ -418,34 +428,38 @@ int main(int argc, char** argv) {
 
   // observation plane
   // observation plane sea level
-  Point const seaPlaneCenter = Point(rootCS, {0_m, 0_m, constants::EarthRadius::Mean});
-  Plane const seaPlane(seaPlaneCenter, DirectionVector(rootCS, {0., 0., 1.}));
-  ObservationPlane<TrackingType, ParticleWriterParquet> seaobservationLevel{
-                          seaPlane, DirectionVector(rootCS, {1., 0., 0.}),
-                          false,   // plane should not "absorb" particles
-                          false}; // do not print z-coordinate
+  //Point const seaPlaneCenter = Point(rootCS, {0_m, 0_m, observationHeight + 500_m});
+  //Plane const seaPlane(seaPlaneCenter, DirectionVector(rootCS, {0., 0., 1.}));
+  //ObservationPlane<TrackingType, ParticleWriterParquet> seaobservationLevel{
+  //                        seaPlane, DirectionVector(rootCS, {1., 0., 0.}),
+  //                        false,   // plane should not "absorb" particles
+  //                        false}; // do not print z-coordinate
   // register ground particle output
-  //output.add("particles_sea_level", seaobservationLevel);
+  //output.add("particles_2500m_level", seaobservationLevel);
   
   //PrimaryWriter<TrackingType, ParticleWriterParquet> seaprimaryWriter(seaobservationLevel);
   //output.add("primary_sea", seaprimaryWriter);
   
   //observation plane 3km under sea level
-  Point const detPlaneCenter = Point(rootCS, {0_m, 0_m, observationHeight});
-  Plane const detPlane(detPlaneCenter, DirectionVector(rootCS, {0., 0., 1.}));
-  ObservationPlane<TrackingType, ParticleWriterParquet> detobservationLevel{
-                           detPlane, DirectionVector(rootCS, {1., 0., 0.}),
-                           true,   // plane should "absorb" particles
-                           false}; // do not print z-coordinate
-  // register ground particle output
-  output.add("particles_det_level", detobservationLevel);
+  Point const detCenter = Point(rootCS, {0_m, 0_m, observationHeight});
+  //Plane const detPlane(detCenter, DirectionVector(rootCS, {0., 0., 1.}));
+  //ObservationPlane<TrackingType, ParticleWriterParquet> detobservationLevel{
+  //                         detPlane, DirectionVector(rootCS, {1., 0., 0.}),
+  //                         true,   // plane should "absorb" particles
+  //                         true}; // do not print z-coordinate
+  CoordinateSystemPtr const &detCS = make_translation(rootCS, detCenter.getCoordinates());
+  Box box(detCS, 2500_m, 2500_m, 500_m);
+  ObservationVolume<tracking_line::Tracking, Box> obsVolume(box);
+
+    // register ground particle output
+  output.add("particles_det_level", obsVolume);
 
   //PrimaryWriter<TrackingType, ParticleWriterParquet> detprimaryWriter(detobservationLevel);
   //output.add("primary_det", detprimaryWriter);
   
   // assemble the final process sequence
-  auto sequence = make_sequence(neutrinoPrimaryPythia, hadronSequence,
-                                decayPythia, emCascade, emContinuous, /*seaobservationLevel,*/ detobservationLevel, cut);
+  auto sequence = make_sequence(/*neutrinoPrimaryPythia, */hadronSequence,
+                                decayPythia, emCascade, emContinuous, /*seaobservationLevel,*/ obsVolume, cut);
 
   /* === END: SETUP PROCESS LIST === */
 
@@ -457,6 +471,8 @@ int main(int argc, char** argv) {
 
   double eMin = app["--eMin"]->as<double>() * 1e9;
   double eMax = app["--eMax"]->as<double>() * 1e9;
+  double zmax = app["--zenithmax"]->as<double>();
+  double zmin = app["--zenithmin"]->as<double>();
   initial_energy_generator e_generator(eMin, eMax, -2, seed);
   TRandom3* rnd = new TRandom3(seed==0? 0 : (seed+1) );
 
@@ -474,13 +490,12 @@ int main(int argc, char** argv) {
     stack.clear();
 
     //particle energy
-    HEPEnergyType const E0 = 1_eV * e_generator.get_E_minus1();
+    HEPEnergyType const E0 = 1_eV * e_generator.get_E_expUniform();
     //HEPEnergyType const E0 = 1_GeV * app["--eMin"]->as<double>();
     std::cout<<"initial energy: "<<E0<<" So far so good"<<std::endl;
     
-    Point const showerCore{rootCS, 0_m, 0_m, observationHeight};
     // direction of the shower in (theta, phi) space   
-    auto const cos_theta = rnd->Uniform(0.9,1);
+    auto const cos_theta = rnd->Uniform(zmin,zmax);
     auto const sin_theta = sqrt(1 - pow(cos_theta, 2));
     auto const phi = rnd->Uniform(0, 2 * TMath::Pi());
     DirectionVector inject_direction(rootCS, {-sin_theta*cos(phi), -sin_theta*sin(phi), -cos_theta});
@@ -496,9 +511,10 @@ int main(int argc, char** argv) {
 
     tagent = tagent / tagent.getNorm();
     DirectionVector bitagent = inject_direction.cross(tagent);
+    bitagent = bitagent / bitagent.getNorm();
     double phi_ = rnd->Uniform(0, 2*TMath::Pi());
     LengthType radius = R_circle * sqrt(rnd->Uniform(0, 1))*1_m;
-    Point const destPoint = detPlaneCenter + cos(phi_) * radius * tagent + sin(phi_) * radius * bitagent;
+    Point const destPoint = detCenter + cos(phi_) * radius * tagent + sin(phi_) * radius * bitagent;
     LengthType dest_x = destPoint.getX(rootCS), dest_y = destPoint.getY(rootCS), dest_z = destPoint.getZ(rootCS);
 
     auto getInjectorLength = [atmosphere_height, dest_z, cos_theta](){
@@ -534,6 +550,7 @@ int main(int argc, char** argv) {
     //detprimaryWriter.recordPrimary(primaryProperties);
     // run the shower
     EAS.run();
+    obsVolume.reset();
     std::cout<<"Run with flying colours"<<std::endl;
   }
   

@@ -3,7 +3,6 @@ import pandas as pd
 import math
 import glob
 from utils import *
-
 class MupageSamples:
     def __init__(self, path_list, energy_range, costh_range, extended_can_radius) -> None:
         self.path_list = path_list
@@ -78,7 +77,12 @@ class CorsikaSamples:
         shower_id_start = 0
         for ibatch in range(len(self.pars_paths)):
             cur_pars = pd.read_parquet(self.pars_paths[ibatch])
-            prim = pd.read_json(self.json_list[ibatch])
+            file_path = self.json_list[ibatch]
+            with open(file_path, 'r') as file:
+                file_content = file.read()
+            file_content_fixed = file_content.replace('p+', '"p+"')
+            prim =  pd.read_json(file_content_fixed)
+            # prim = pd.read_json(self.json_list[ibatch])
             merge = cur_pars.merge(prim, on='shower', how='left')
             cur_pars['E'] = merge['E']
             cur_pars.shower += shower_id_start
@@ -99,7 +103,7 @@ class CorsikaSamples:
     def pick_up_particles(self, id):
          selected = self.particles[self.particles['pdg'].isin(id)]
          return selected
-
+D
 def weight(particles, id, weighter, prim_num, energy_range, costh_range):
     emin = energy_range[0]
     emax = energy_range[1]
