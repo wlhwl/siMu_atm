@@ -87,8 +87,8 @@ class RatioPlotContainer(PlotContainer):
             else:
                 self.ax_ratio.plot(x_values, ratio, linewidth=1.5, label=key, color=color)
             # Save min & max y value
-            self.y_max = max(self.y_max, max(ratio[mask] + self.error[mask] if draw_error else [0]) * 1.1)
-            self.y_min = min(self.y_min, min(ratio[mask] - self.error[mask] if draw_error else [0]) * 0.9)
+            self.y_max = max(self.y_max, max(ratio[mask] + self.error[mask] if draw_error else 0) * 1.1)
+            self.y_min = min(self.y_min, min(ratio[mask] - self.error[mask] if draw_error else 0) * 0.9)
 
         self.ax_ratio.axhline(y=1, linestyle='--', color='black', linewidth=0.5)
         self.ax_ratio.set_ylabel(ratio_ylabel)

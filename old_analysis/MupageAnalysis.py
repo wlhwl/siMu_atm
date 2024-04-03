@@ -41,7 +41,10 @@ class MupageSamples:
             df['muonId'] -= 1
             # intrisic bugs in MUPAGE
             df.loc[df.multiplicity==1, 'nz'] *= -1
+
             total_shower += len(df.showerId.unique())
+            # df = df[df['energy'] > 200]
+            # df = df[df['nz'] < -0.9]
 
             # merge shower
             muons = pd.concat([muons, df])
@@ -57,14 +60,11 @@ class MupageSamples:
         self.shower_vars['timeDuration'] = self.muons.relativeT.groupby('showerId').max() - self.muons.relativeT.groupby('showerId').min()
         
 
-
-    
-
 def setup_plots(save_dir:str, plots:dict=None):
     if plots==None:
         plots = {}
     # Plots for muons
-    energy_bin = np.logspace(0, 5, 51)
+    energy_bin = np.logspace(2, 5, 51)
     plots['energy'] = PlotContainer(shower_vars=False, xlabel=r'$E_{\mu}$ [GeV]', ylabel=r'$EdN/dE\ [s^{-1}m^{-2}]$', logx=True, logy=True, figname=save_dir + 'muon_e_spectrum.pdf', bins=energy_bin, weights=1./(math.log(energy_bin[1]/energy_bin[0])))
     plots['R'] = PlotContainer(shower_vars=False, xlabel=r'$radius_{\mu}$ [m]', ylabel=r'$[s^{-1}m^{-2}]$', logx=False, logy=False, figname=save_dir + 'muon_radius.pdf', bins=np.linspace(0, 300, 31))
     plots['costh'] = PlotContainer(shower_vars=False, xlabel=r'$cos(\theta)$', ylabel=r'$[s^{-1}m^{-2}]$', logx=False, logy=False, figname=save_dir + 'muon_costh.pdf', bins=np.linspace(0, 1, 31))
@@ -78,10 +78,10 @@ def setup_plots(save_dir:str, plots:dict=None):
 
 
 class GlobalSetting:
-    path_list = glob.glob("/lustre/collider/mocen/project/hailing/atmos_muon/generator_workspace/evt/*.evt")
+    path_list = glob.glob("/media/ineffablord/T7/siMu_atm/data/mupage/evt/*.evt")
     mupage_samples = MupageSamples(path_list=path_list, energy_range=(1, 1e5), costh_range=(math.cos(85), 1), extended_can_radius=300)
     
-    save_dir = './save-mupage/'
+    save_dir = 'save-mupage_full/'
     plots = setup_plots(save_dir)
 
 
