@@ -1,6 +1,8 @@
+import math
 from config import *
 from utils import *
 import numpy as np
+from scipy import special
 
 para_table = [[[120*10**3,7000,1.661,1],[4*10**6,150,1.4,1],[1.3*10**9,1.4,1.4,1]],
                   [[120*10**3,3200,1.58,2],[4*10**6,65,1.3,2],[1.3*10**9,0,0,2]],
