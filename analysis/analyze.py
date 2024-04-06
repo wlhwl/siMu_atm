@@ -18,7 +18,7 @@ def calculate_dnde(e,rc,a,gamma,z):
     dnde = a * np.power(e,-gamma-1) * np.exp(-e/(z*rc)) # dnde = phi / e
     return dnde
 
-def GST3_Weighter(e,id,emin,emax,prim_num):
+def Weighter(e,id,emin,emax,prim_num):
     spec_wei = Simu_spectrum_weight(e,emin,emax,prim_num)
     dnde=0
     for i in range(0,3):
@@ -37,12 +37,14 @@ if __name__ == '__main__':
         # cor_particles = cor_particles.loc[np.sqrt(np.square(cor_particles.x)+np.square(cor_particles.y)) < 2000]
 
         # weight
-        cor_particles_w = weight(cor_particles, myset.corsika_samples[i].id, GST3_Weighter,
+
+        cor_particles_w = weight(cor_particles, myset.corsika_samples[i].id, Weighter,
                                 prim_num, myset.corsika_samples[i].energy_range,
                                 myset.corsika_samples[i].costh_range)
         corsika.append(cor_particles_w)
 
     corsika = pd.concat(corsika)
+
     corsika.to_parquet('quick_draw/muon_cor.parquet')
 
     #mupage
