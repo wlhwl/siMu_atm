@@ -8,7 +8,7 @@ if __name__ == '__main__':
                           logx=False, logy=False, 
                           figname=save_dir + 'muon_zenith_dis.jpg', bins=np.linspace(0,1,50))
     
-    cor = pd.read_parquet('./muon_cor.parquet')
+    cor = pd.read_parquet('/lustre/neutrino/huangweilun/atmos_muon/COR_atm_muon/analysis/data/muon_cor.parquet')
     cor = cor.loc[cor['z']==500]
     hist, bins = np.histogram(-cor['nz'], bins=plots.bins, weights=cor['weight'])
     hist = hist / np.diff(bins)

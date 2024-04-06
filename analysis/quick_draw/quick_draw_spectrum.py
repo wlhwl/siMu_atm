@@ -10,9 +10,9 @@ if __name__ == '__main__':
                           logx=True, logy=True, 
                           figname=save_dir + 'muon_spectrum_com_2.5.jpg', bins=np.logspace(2,5,50))
     
-    cor = pd.read_parquet('./muon_cor.parquet')
-    mp = pd.read_parquet('./muon_mp.parquet')
-    
+    cor = pd.read_parquet('/lustre/neutrino/huangweilun/atmos_muon/COR_atm_muon/analysis/data/muon_cor.parquet')
+    mp = pd.read_parquet('/lustre/neutrino/huangweilun/atmos_muon/COR_atm_muon/analysis/data/muon_mp.parquet')
+
     cor = cor.loc[cor['z']==500]
     cor = cor.loc[-cor['nz'] > 0.95]
     mp = mp.loc[mp['z']==500]
