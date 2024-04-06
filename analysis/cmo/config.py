@@ -100,7 +100,11 @@ class CorsikaSamples:
             except:
                 continue
             merge = cur_pars.merge(cur_prims, on='shower', how='left')
+
+            cur_pars['energy'] = cur_pars.kinetic_energy + 0.1
+            # Record primary information
             cur_pars['primary_energy'] = merge['E']
+            cur_pars['primary_Z'] = self.primary_Z
             cur_prims.shower += shower_id_start
             cur_pars.shower += shower_id_start
             shower_id_start += self.num_events_list[ibatch]
@@ -150,20 +154,21 @@ class GlobalSetting:
         corsika_samples=[]
         muon_c8 = []
         prim_par = ['p','He','C','O','Fe']
+        prim_Z = [1, 2, 6, 8, 26]
         group_file = ['out_1-100T','out_100T-100P_lydmbadkyi','out_100T-100P_lydmsidklydmba','out_100T-100P_lydklydmsi']
         sim_group = [['out_1-100T',[1e3, 1e5],[0, 1],[[1000], [5000], [2000], [2000], [2000]]],
                     ['out_100T-100P_lydmbadkyi',[1e5, 1e8],[0.8, 1],[[2000],[2000],[2000],[2000],[2000]]],
                     ['out_100T-100P_lydmsidklydmba',[1e5,1e8],[0.4, 0.8],[[2000],[2000],[2000],[2000],[2000]]],
                     ['out_100T-100P_lydklydmsi',[1e5, 1e8],[0, 0.4],[[2000],[2000],[2000],[2000],[2000]]]]
     
-        for i, set_name in enumerate(group_file):
+        for i, primary in enumerate(prim_par):
             for settings in sim_group:
                 # full angle 1-100TeV
-                cor_path_list = glob.glob('/lustre/neutrino/huangweilun/atmos_muon/COR_atm_muon/test_proton/bin/' + prim_par[i] + '/' + settings[0] + '/part*/my_shower/')
-                cor_json_list = glob.glob('/lustre/neutrino/huangweilun/atmos_muon/COR_atm_muon/test_proton/bin/' + prim_par[i] + '/' + settings[0] + '/part*/Primaries.json')
+                cor_path_list = glob.glob('/lustre/neutrino/huangweilun/atmos_muon/COR_atm_muon/test_proton/bin/' + primary + '/' + settings[0] + '/part*/my_shower/')
+                cor_json_list = glob.glob('/lustre/neutrino/huangweilun/atmos_muon/COR_atm_muon/test_proton/bin/' + primary + '/' + settings[0] + '/part*/Primaries.json')
                 c_s0 = CorsikaSamples(path_list=cor_path_list,  josn_list=cor_json_list, 
                                     num_events_list=np.multiply(np.ones_like(cor_path_list,np.double),settings[3][i]),
-                                        id = i, energy_range=settings[1], costh_range=settings[2])
+                                        id = i, energy_range=settings[1], costh_range=settings[2], primary_Z=prim_Z[i])
                 corsika_samples.append(c_s0)
                 muon_c8.append(c_s0.muons)
         muon_c8 = pd.concat(muon_c8)
