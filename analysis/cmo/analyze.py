@@ -34,10 +34,28 @@ def draw_vertical_spectrum(myset, muon_corsika, muon_mupage, costh_cut=0.95, bin
             y_value=hist, ary_index=i, label='flux', y_err=y_err, color=color
         )
 
+        # Draw primary composition for COSIKA sample
+        if i==0:
+            primary_list = muon.primary_Z.unique()
+            primary_Z = muon.primary_Z.to_numpy()
+            for j, Z in enumerate(primary_list):
+                color = default_color_list[j+2]
+                mask = (primary_Z==Z)
+                tmp_ary, tmp_weights = ary[mask], weights[mask]
+
+                # Draw hists
+                bin_contents, bins = np.histogram(tmp_ary, bins=bins, weights=tmp_weights)
+
+                # y_value: EdN/dE/dOmega/dS/dt
+                x_values=(bins[:-1]+bins[1:])/2
+                y_values = bin_contents/np.diff(bins)
+                pc.ax.plot(x_values, y_values, drawstyle='steps-mid', color=color, label=name+f' Z={Z:.0f}', linestyle='--')
+    # apply settings & draw ratio plot
     pc.draw_ratio(f'Mupage / CORSIKA', draw_error=True)
-    pc.apply_settings(ratio_ylim=(0., 5), if_legend=False)
+    pc.apply_settings(ratio_ylim=(0.1, 10), if_legend=False)
+    pc.ax_ratio.set_yscale('log')
     legend_loc = pc.legend_loc if hasattr(pc, 'legend_loc') else None
-    pc.ax.legend(fontsize=10, loc=legend_loc)
+    pc.ax.legend(fontsize=7, loc=legend_loc)
     pc.savefig()
     
 if __name__ == '__main__':
