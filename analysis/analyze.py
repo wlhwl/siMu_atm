@@ -43,14 +43,14 @@ if __name__ == '__main__':
         corsika.append(cor_particles_w)
 
     corsika = pd.concat(corsika)
-    corsika.to_parquet('muon_cor.parquet')
+    corsika.to_parquet('quick_draw/muon_cor.parquet')
 
     #mupage
     mp_particles = myset.mupage_samples.muons
     mp_weight = 1 / myset.mupage_samples.livetime / (math.pi * myset.mupage_samples.extended_can_radius**2)
     mp_particles['weight'] = mp_weight
     #print(mp_particles)
-    mp_particles.to_parquet('muon_mp.parquet')
+    mp_particles.to_parquet('quick_draw/muon_mp.parquet')
    
     # plots = myset.plots
     # variables = list(plots.keys())
