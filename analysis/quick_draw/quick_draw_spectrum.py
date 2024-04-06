@@ -1,19 +1,21 @@
+import sys
+sys.path.append('./../')
 from utils import *
 import numpy as np
 import pandas as pd
 
 if __name__ == '__main__':
-    save_dir = './picture/'
+    save_dir = './../picture/'
     plots = RatioPlotContainer(xlabel=r'$E_{\mu} [GeV]$', ylabel=r'$EdN/dE [s^{-1}m^{-2}sr^{-1}]$', 
                           logx=True, logy=True, 
-                          figname=save_dir + 'muon_spectrum_com.jpg', bins=np.logspace(2,5,50))
+                          figname=save_dir + 'muon_spectrum_com_2.5.jpg', bins=np.logspace(2,5,50))
     
-    cor = pd.read_parquet('./muon_cor.parquet')
-    mp = pd.read_parquet('./muon_mp.parquet')
-    
+    cor = pd.read_parquet('/lustre/neutrino/huangweilun/atmos_muon/COR_atm_muon/analysis/data/muon_cor.parquet')
+    mp = pd.read_parquet('/lustre/neutrino/huangweilun/atmos_muon/COR_atm_muon/analysis/data/muon_mp.parquet')
+
     cor = cor.loc[cor['z']==500]
     cor = cor.loc[-cor['nz'] > 0.95]
-    mp = mp.loc[mp['z']==400]
+    mp = mp.loc[mp['z']==500]
     mp = mp.loc[-mp['nz'] > 0.95]
     
     hist_cor, bin_cor = np.histogram(cor['kinetic_energy'],plots.bins,weights=cor['weight']*cor['kinetic_energy']/0.05)
