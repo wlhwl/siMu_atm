@@ -106,7 +106,7 @@ class CorsikaSamples:
     def pick_up_particles(self, id):
          selected = self.particles[self.particles['pdg'].isin(id)]
          return selected
-    
+
 def weight(particles, id, weighter, prim_num, energy_range, costh_range):
     emin = energy_range[0]
     emax = energy_range[1]
@@ -141,6 +141,7 @@ class GlobalSetting:
                                     id = i, energy_range=sim_group[j][1], costh_range=sim_group[j][2], sample_cube_surface=5000*16000,
                                         select_id=[13,-13])
             corsika_samples.append(c_s0)
+
     mp_path_list = glob.glob("/media/ineffablord/T7/siMu_atm/data/mupage/3.5-2.5/*.evt")
     mupage_samples = MupageSamples(path_list=mp_path_list, energy_range=(1, 1e5), costh_range=(0,math.cos(85)), extended_can_radius=300)
 
