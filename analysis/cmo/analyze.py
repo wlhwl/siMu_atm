@@ -3,55 +3,51 @@ from config import *
 from utils import *
 import numpy as np
 
+def draw_vertical_spectrum(myset, muon_corsika, muon_mupage, costh_cut=0.95, bins=np.logspace(2,5,31)):
+    muon_ls = [muon_corsika, muon_mupage]
+    name_ls = ["CORSIKA", "MUPAGE"]
+    pc = RatioPlotContainer(xlabel=r'$E_{\mu}$', ylabel=r'$EdN/dE [s^{-1}m^{-2}sr^{-1}]$', logx=True, logy=True, figname=myset.save_dir + 'vertical_muon_spectrum.jpg')
+
+    for i in range(2):
+        muon, name = muon_ls[i], name_ls[i]
+        color = default_color_list[i]
+
+        # Select down-going muons
+        muon = muon.loc[muon.nz<-1*costh_cut]
+        ary, weights = muon.energy.to_numpy(), muon.weight.to_numpy()
+
+        # Considering sr in weight
+        # weights unit: GeV s-1 m-2 rad-1
+        weights = weights / (2*math.pi*(1-costh_cut)) * ary
+        bin_contents, bins = np.histogram(ary, bins=bins, weights=weights)
+
+        # y_value: EdN/dE/dOmega/dS/dt
+        y_value = bin_contents/np.diff(bins)
+        hist, bins, _ = pc.ax.hist(bins[:-1], bins=bins, weights=y_value, label=name, histtype="step", linewidth=2, color=color)
+
+        # Calculate errors
+        y_err2, bins = np.histogram(ary, bins=bins, weights=(weights)**2)
+        y_err = y_err2**0.5 / np.diff(bins)
+        pc.ax.errorbar((bins[1:]+bins[:-1])/2, y_value, yerr=y_err, fmt='none', color=color)
+        pc.insert_data(
+            x_values=(bins[:-1]+bins[1:])/2, 
+            y_value=hist, ary_index=i, label='flux', y_err=y_err, color=color
+        )
+
+    pc.draw_ratio(f'Mupage / CORSIKA', draw_error=True)
+    pc.apply_settings(ratio_ylim=(0., 5), if_legend=False)
+    legend_loc = pc.legend_loc if hasattr(pc, 'legend_loc') else None
+    pc.ax.legend(fontsize=10, loc=legend_loc)
+    pc.savefig()
+    
 if __name__ == '__main__':
     ##corsika
     myset = GlobalSetting()
     muon_corsika = myset.muon_c8
     muon_mupage = myset.muon_mupage
    
+    draw_vertical_spectrum(myset=myset, muon_corsika=muon_corsika, muon_mupage=muon_mupage)
 
-    # Draw vertical muon flux
-    bins=np.logspace(2,5,30)
-    pc = RatioPlotContainer(xlabel=r'$E_{\mu}$', ylabel=r'$EdN/dE [s^{-1}m^{-2}sr^{-1}]$', logx=True, logy=True, figname=myset.save_dir + 'vertical_muon_spectrum.jpg', )
-
-    # c8 downgoing muon
-    costh_cut = 0.95
-    muon = muon_corsika.loc[muon_corsika.nz<-1*costh_cut]
-    ary, weights = muon.kinetic_energy.to_numpy(), muon.weight.to_numpy()
-    # weights unit: GeV s-1 m-2 rad-1
-    weights = weights / (2*math.pi*(1-costh_cut)) * ary
-    bin_contents, bins = np.histogram(ary, bins=bins, weights=weights)
-    y_value = bin_contents/np.diff(bins)
-    hist, bins, _ = pc.ax.hist(bins[:-1], bins=bins, weights=y_value, label="CORSICA", histtype="step", linewidth=2)
-    y_err2, bins = np.histogram(ary, bins=bins, weights=(weights)**2)
-    y_err = y_err2**0.5 / np.diff(bins)
-    pc.ax.errorbar((bins[1:]+bins[:-1])/2, y_value, yerr=y_err, fmt='none')
-    pc.insert_data(
-        x_values=(bins[:-1]+bins[1:])/2, 
-        y_value=hist, ary_index=0, label='energy', y_err=y_err
-    )
-
-    # mupage downgoing muon
-    muon = muon_mupage.loc[muon_mupage.nz<-1*costh_cut]
-    ary, weights = muon.energy.to_numpy(), muon.weight.to_numpy()
-    # weights unit: GeV s-1 m-2 rad-1
-    weights = weights / (2*math.pi*(1-costh_cut)) * ary
-    bin_contents, bins = np.histogram(ary, bins=bins, weights=weights)
-    y_value = bin_contents/np.diff(bins)
-    hist, bins, _ = pc.ax.hist(bins[:-1], bins=bins, weights=y_value, label="Mupage", histtype="step", linewidth=2)
-    y_err2, bins = np.histogram(ary, bins=bins, weights=(weights)**2)
-    y_err = y_err2**0.5 / np.diff(bins)
-    pc.ax.errorbar((bins[1:]+bins[:-1])/2, y_value, yerr=y_err, fmt='none')
-    pc.insert_data(
-        x_values=(bins[:-1]+bins[1:])/2, 
-        y_value=hist, ary_index=1, label='energy', y_err=y_err
-    )
-
-    pc.draw_ratio(f'Mupage / CORSIKA', draw_error=True)
-    pc.apply_settings(ratio_ylim=(0., 5))
-    legend_loc = pc.legend_loc if hasattr(pc, 'legend_loc') else None
-    pc.ax.legend(fontsize=10, loc=legend_loc)
-    pc.savefig()
     exit(0)
     plots = myset.plots
     variables = list(plots.keys())
