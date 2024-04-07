@@ -3,13 +3,15 @@ from config import *
 from utils import *
 import numpy as np
 
-def draw_vertical_spectrum(myset, muon_corsika, muon_mupage, costh_cut=0.95, bins=np.logspace(2,5,31)):
+def draw_muon_spectrum(myset, muon_corsika, muon_mupage, costh_cut=0.95, bins=np.logspace(2,5,31)):
     muon_ls = [muon_corsika, muon_mupage]
     name_ls = ["CORSIKA", "MUPAGE"]
-    pc = RatioPlotContainer(xlabel=r'$E_{\mu}$', ylabel=r'$EdN/dE [s^{-1}m^{-2}sr^{-1}]$', logx=True, logy=True, figname=myset.save_dir + 'vertical_muon_spectrum.jpg')
+    pc = RatioPlotContainer(xlabel=r'$E_{\mu}$', ylabel=r'$EdN/dE [s^{-1}m^{-2}sr^{-1}]$', logx=True, logy=True, figname=myset.save_dir + 'muon_spectrum.pdf')
 
     for i in range(2):
         muon, name = muon_ls[i], name_ls[i]
+        # Restrict muons to be in the upper surface
+        muon = muon.loc[muon.z>499]
         color = default_color_list[i]
 
         # Select down-going muons
@@ -65,7 +67,7 @@ if __name__ == '__main__':
     muon_corsika = myset.muon_c8
     muon_mupage = myset.muon_mupage
    
-    draw_vertical_spectrum(myset=myset, muon_corsika=muon_corsika, muon_mupage=muon_mupage)
+    draw_muon_spectrum(myset=myset, muon_corsika=muon_corsika, muon_mupage=muon_mupage)
 
     exit(0)
     plots = myset.plots
