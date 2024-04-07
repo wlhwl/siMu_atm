@@ -102,7 +102,7 @@ def draw_bundle_var(myset, muon_corsika, muon_mupage):
 
     # Define vars to draw
     plots = {
-        'multiplicity': RatioPlotContainer(xlabel='Multiplicity, m', ylabel=r'$dN/dm dS dt\ \ [s^{-1}m^{-2}]$', logx=False, logy=True, figname=myset.save_dir + 'bundle_multiplicity.pdf', bins=np.linspace(1, 40, 40), functor='count') ,
+        'multiplicity': RatioPlotContainer(xlabel='Multiplicity, m', ylabel=r'$dN/dm dS dt\ \ [s^{-1}m^{-2}]$', logx=False, logy=True, figname=myset.save_dir + 'bundle_multiplicity.pdf', bins=np.linspace(0.5, 40.5, 41), functor='count') ,
         'bund_energy': RatioPlotContainer(xlabel=r'Bundle Energy [GeV]', ylabel=r'$EdN/dE dS dt\ \ [s^{-1}m^{-2}]$', logx=True, logy=True, figname=myset.save_dir + 'bundle_energy.pdf', bins=np.logspace(2, 6, 41), functor='sum') ,
     }
 
