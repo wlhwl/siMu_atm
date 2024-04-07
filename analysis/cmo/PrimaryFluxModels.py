@@ -108,7 +108,7 @@ if __name__=='__main__':
             flux = model(Z, energy)
             ax.plot(energy, flux * energy**2.6, label=name + f' Z={Z}', color=default_color_list[i], linestyle=linestyle)
             total_flux += flux
-        ax.plot(energy, total_flux * energy**2.6, label=name+' Total', color=default_color_list[i+1], linewidth=2, linestyle=linestyle)
+        ax.plot(energy, total_flux * energy**2.6, label=name+' Total', color='black', linewidth=2, linestyle=linestyle)
     ax.set_ylabel(r'Flux$\times\ E^{2.6}$')
     ax.set_xlabel(r'Energy [GeV]')
     ax.set_yscale('log')
