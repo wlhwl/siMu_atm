@@ -21,6 +21,8 @@ class MupageSamples:
     def reweight(self):
         # weight unit: [s-1 m-2]
         weight = 1 / self.livetime / (math.pi * self.extended_can_radius**2)
+        # restrict muons within certain region
+        self.muons = self.muons.loc[(self.muons.x**2+self.muons.y**2<(self.extended_can_radius**2))]
         self.muons['weight'] = weight
 
     def load_muons(self):
@@ -69,8 +71,9 @@ class MupageSamples:
         self.shower_vars['timeDuration'] = self.muons.relativeT.groupby('shower').max() - self.muons.relativeT.groupby('shower').min()
 
 class CorsikaSamples:
-    def __init__(self, path_list, josn_list, num_events_list, id, energy_range, costh_range, primary_Z=1, 
+    def __init__(self, path_list, josn_list, num_events_list, id, energy_range, costh_range, primary_flux_model, primary_Z=1, 
              sample_radius=(285**2+2e3**2)**0.5, obs_level='det_level') -> None:
+        self.primary_flux_model = primary_flux_model
         self.path_list = path_list
         self.json_list = josn_list
         self.num_events_list = num_events_list
@@ -123,16 +126,8 @@ class CorsikaSamples:
         MC_pdf = MC_energy_pdf / (self.costh_range[1]-self.costh_range[0]) / (2*math.pi) / (math.pi * self.sample_radius**2)
 
         # reweight: target PDF divided by (MC PDF times num_events)
-        self.primaries['weight'] = 1 / MC_pdf / sum(self.num_events_list) * GST3(Z=self.primary_Z, E=E_prim)
+        self.primaries['weight'] = 1 / MC_pdf / sum(self.num_events_list) * self.primary_flux_model(Z=self.primary_Z, E=E_prim)
         self.particles['weight'] = self.primaries["weight"].loc[self.particles.index]
-
-         
-def weight(particles, id, weighter, prim_num, energy_range, costh_range):
-    emin = energy_range[0]
-    emax = energy_range[1]
-    cos_range = costh_range[1] - costh_range[0]
-    particles['weight'] = particles['E'].apply(weighter, args=(id, emin,emax,prim_num)) * cos_range
-    return particles
 
 def setup_plots(save_dir:str, plots:dict=None):
     if plots==None:
@@ -151,6 +146,8 @@ class GlobalSetting:
     if os.path.exists(muon_c8_path):
         muon_c8 = pd.read_csv(muon_c8_path).set_index('shower')
     else:
+        # primary_flux_model = GST3Model()
+        primary_flux_model = GSFModel()
         corsika_samples=[]
         muon_c8 = []
         prim_par = ['p','He','C','O','Fe']
@@ -166,7 +163,7 @@ class GlobalSetting:
                 # full angle 1-100TeV
                 cor_path_list = glob.glob('/lustre/neutrino/huangweilun/atmos_muon/COR_atm_muon/test_proton/bin/' + primary + '/' + settings[0] + '/part*/my_shower/')
                 cor_json_list = glob.glob('/lustre/neutrino/huangweilun/atmos_muon/COR_atm_muon/test_proton/bin/' + primary + '/' + settings[0] + '/part*/Primaries.json')
-                c_s0 = CorsikaSamples(path_list=cor_path_list,  josn_list=cor_json_list, 
+                c_s0 = CorsikaSamples(path_list=cor_path_list,  josn_list=cor_json_list, primary_flux_model=primary_flux_model,
                                     num_events_list=np.multiply(np.ones_like(cor_path_list,np.double),settings[3][i]),
                                         id = i, energy_range=settings[1], costh_range=settings[2], primary_Z=prim_Z[i])
                 corsika_samples.append(c_s0)
