@@ -141,7 +141,7 @@ def setup_plots(save_dir:str, plots:dict=None):
     return plots
 
 class GlobalSetting:
-    save_dir = './save/'
+    save_dir = './save-PolyGonato/'
     os.makedirs(save_dir, exist_ok=True)
 
     # Load / Save Corsika8 muon
@@ -150,7 +150,8 @@ class GlobalSetting:
         muon_c8 = pd.read_csv(muon_c8_path).set_index('shower')
     else:
         # primary_flux_model = GST3Model()
-        primary_flux_model = GSFModel()
+        primary_flux_model = PolyGonatoModel()
+        # primary_flux_model = GSFModel()
         prim_par = ['p','He','C','O','Fe']
         prim_Z = [1, 2, 6, 8, 26]
         group_file = ['out_1-100T','out_100T-100P_lydmbadkyi','out_100T-100P_lydmsidklydmba','out_100T-100P_lydklydmsi']

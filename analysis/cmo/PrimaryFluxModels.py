@@ -88,20 +88,46 @@ class GSFModel(PrimaryFluxModel):
         return self.flux_calculator[Z](E)
         
 
+class PolyGonatoModel(PrimaryFluxModel):
+    def __init__(self):
+        super().__init__()
+        self.yc, self.epc = -4.7, 1.87
+
+        # Table of yz, phiz, Ez
+        self.parameter_table = {
+            # proton
+            1: [-2.71, 8.73e-2, 4.5e6], 
+            # He
+            2: [-2.64, 5.71e-2, 9e6],
+            # CNO, here take it as C
+            6: [-2.68, 3.24e-2, 3.06e7],
+            # Mg, here take it as O
+            8: [-2.67, 3.16e-2, 6.48e7],
+            # Fe
+            26: [-2.58, 2.18e-2, 1.17e8]
+        }
+    
+    def __call__(self, Z, E):
+        # Energy unit: GeV
+        yz, phiz, Ez = self.parameter_table[Z]
+        yc, epc = self.yc, self.epc
+        return phiz * (E/1e3)**yz * ( 1 + (E/Ez)**epc )**((yc-yz)/epc) / 1e3
+
 
 if __name__=='__main__':
     default_color_list = [u'#1f77b4', u'#ff7f0e', u'#2ca02c', u'#d62728', u'#9467bd', u'#8c564b', u'#e377c2', u'#7f7f7f', u'#bcbd22', u'#17becf']
     energy = np.logspace(3, 8, 30)
     Z_list = [1, 2, 6, 8, 26]
     model_dict = {
-        'GST3': GST3Model(),
-        'GSF': GSFModel()
+        # 'GST3': GST3Model(),
+        'GSF': GSFModel(),
+        'poly-gonato': PolyGonatoModel(),
     }
 
     import matplotlib.pyplot as plt
     fig, ax = plt.subplots(figsize=(7, 5), dpi=600, constrained_layout=True)
     for name, model in model_dict.items():
-        linestyle = '--' if name=='GST3' else None
+        linestyle = '--' if name=='GSF' else None
         total_flux = np.zeros_like(energy)
         for i, Z in enumerate(Z_list):
             # flux += model(Z, energy)
