@@ -88,3 +88,32 @@ class GSFModel(PrimaryFluxModel):
         return self.flux_calculator[Z](E)
         
 
+
+if __name__=='__main__':
+    default_color_list = [u'#1f77b4', u'#ff7f0e', u'#2ca02c', u'#d62728', u'#9467bd', u'#8c564b', u'#e377c2', u'#7f7f7f', u'#bcbd22', u'#17becf']
+    energy = np.logspace(3, 8, 30)
+    Z_list = [1, 2, 6, 8, 26]
+    model_dict = {
+        'GST3': GST3Model(),
+        'GSF': GSFModel()
+    }
+
+    import matplotlib.pyplot as plt
+    fig, ax = plt.subplots(figsize=(7, 5), dpi=600, constrained_layout=True)
+    for name, model in model_dict.items():
+        linestyle = '--' if name=='GST3' else None
+        total_flux = np.zeros_like(energy)
+        for i, Z in enumerate(Z_list):
+            # flux += model(Z, energy)
+            flux = model(Z, energy)
+            ax.plot(energy, flux * energy**2.6, label=name + f' Z={Z}', color=default_color_list[i], linestyle=linestyle)
+            total_flux += flux
+        ax.plot(energy, total_flux * energy**2.6, label=name+' Total', color=default_color_list[i+1], linewidth=2, linestyle=linestyle)
+    ax.set_ylabel(r'Flux$\times\ E^{2.6}$')
+    ax.set_xlabel(r'Energy [GeV]')
+    ax.set_yscale('log')
+    ax.set_xscale('log')
+    ax.legend()
+    fig.savefig('./save/model_comparison.pdf')
+    
+    
