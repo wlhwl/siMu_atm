@@ -140,8 +140,6 @@ def draw_bundle_var(myset, muon_corsika, muon_mupage):
         pc.ax.legend(fontsize=7, loc=legend_loc)
         pc.savefig()
 
-
-
 def restrict_muons(muon_list):
     for i in range(len(muon_list)):
         muon = muon_list[i]
@@ -164,27 +162,22 @@ if __name__ == '__main__':
 
     # Draw boundle variables
     draw_bundle_var(myset=myset, muon_corsika=muon_corsika, muon_mupage=muon_mupage)
-    exit(0)
-    plots = myset.plots
-    variables = list(plots.keys())
-    
-    for var in variables:
-        pc = plots.get(var)
-        to_draw = muon_corsika[var]
-        bins = pc.bins if hasattr(pc, 'bins') else 30
-        
-        hist_w, bin_w = np.histogram(to_draw, bins,weights=muon_corsika['weight']*muon_corsika['kinetic_energy']*2*np.pi)
-        hist_w = hist_w / np.diff(bin_w)
 
-        hist_raw, _ = np.histogram(to_draw, bins)
-        err = hist_w / np.sqrt(hist_raw)
+    # Draw primary spectrum
+    pc =  PlotContainer(xlabel=r'Primary Energy [GeV]', ylabel=r'$EdN/dE dS dt\ \ [s^{-1}m^{-2}]$', logx=True, logy=True, figname=myset.save_dir + 'C8_primary_spectrum.pdf') 
+    bins=np.logspace(3, 7.5, 41)
+    muon = muon_corsika
+    ary = muon.groupby('shower')['primary_energy'].first().to_numpy()
+    weights = muon.groupby('shower')['weight'].first().to_numpy() * ary 
+    bin_contents, bins = np.histogram(ary, bins=bins, weights=weights)
 
-        hist_mp, bin_mp = np.histogram(mp_particles['energy'],bins,weights=mp_particles['energy']*mp_weight)
-        hist_mp = hist_mp / np.diff(bin_mp)
-        
-        # pc.ax.plot((bin_w[1:]+bin_w[:-1])/2,hist_w,linestyle='--',label='sim')
-        pc.ax.errorbar((bins[1:]+bins[:-1])/2, hist_w, yerr=err, label="corsika")
-        pc.ax.plot((bins[1:]+bins[:-1])/2,hist_mp, label="mupage")
-        pc.ax.legend()
-        pc.apply_settings()
-        pc.savefig()
+    # y_value: dN/dx/dS/dt
+    y_value = bin_contents/np.diff(bins)
+    hist, bins, _ = pc.ax.hist(bins[:-1], bins=bins, weights=y_value, histtype="step", linewidth=2)
+
+    # Calculate errors
+    y_err2, bins = np.histogram(ary, bins=bins, weights=(weights)**2)
+    y_err = y_err2**0.5 / np.diff(bins)
+    pc.ax.errorbar((bins[1:]+bins[:-1])/2, y_value, yerr=y_err, fmt='none')
+    pc.apply_settings()
+    pc.savefig()
