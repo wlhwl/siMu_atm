@@ -101,6 +101,7 @@ class CorsikaSamples:
                 file_content_fixed = re.sub(r'"pdg":.*\n', '', file_content)
                 cur_prims =  pd.read_json(file_content_fixed)
             except:
+                print(f'Error with file: {self.pars_paths[ibatch]}')
                 continue
             merge = cur_pars.merge(cur_prims, on='shower', how='left')
 
@@ -109,6 +110,7 @@ class CorsikaSamples:
             cur_pars['primary_energy'] = merge['E']
             cur_pars['primary_Z'] = self.primary_Z
             cur_prims.shower += shower_id_start
+            cur_prims['Z'] = self.primary_Z
             cur_pars.shower += shower_id_start
             shower_id_start += self.num_events_list[ibatch]
             particles.append(cur_pars)
@@ -126,7 +128,8 @@ class CorsikaSamples:
         MC_pdf = MC_energy_pdf / (self.costh_range[1]-self.costh_range[0]) / (2*math.pi) / (math.pi * self.sample_radius**2)
 
         # reweight: target PDF divided by (MC PDF times num_events)
-        self.primaries['weight'] = 1 / MC_pdf / sum(self.num_events_list) * self.primary_flux_model(Z=self.primary_Z, E=E_prim)
+        # self.primaries['weight'] = 1 / MC_pdf / sum(self.num_events_list) * self.primary_flux_model(Z=self.primary_Z, E=E_prim)
+        self.primaries['weight'] = 1 / MC_pdf / len(self.primaries) * self.primary_flux_model(Z=self.primary_Z, E=E_prim)
         self.particles['weight'] = self.primaries["weight"].loc[self.particles.index]
 
 def setup_plots(save_dir:str, plots:dict=None):
@@ -148,8 +151,6 @@ class GlobalSetting:
     else:
         # primary_flux_model = GST3Model()
         primary_flux_model = GSFModel()
-        corsika_samples=[]
-        muon_c8 = []
         prim_par = ['p','He','C','O','Fe']
         prim_Z = [1, 2, 6, 8, 26]
         group_file = ['out_1-100T','out_100T-100P_lydmbadkyi','out_100T-100P_lydmsidklydmba','out_100T-100P_lydklydmsi']
@@ -157,7 +158,9 @@ class GlobalSetting:
                     ['out_100T-100P_lydmbadkyi',[1e5, 1e8],[0.8, 1],[[2000],[2000],[2000],[2000],[2000]]],
                     ['out_100T-100P_lydmsidklydmba',[1e5,1e8],[0.4, 0.8],[[2000],[2000],[2000],[2000],[2000]]],
                     ['out_100T-100P_lydklydmsi',[1e5, 1e8],[0, 0.4],[[2000],[2000],[2000],[2000],[2000]]]]
-    
+        corsika_samples=[]
+        primary_c8 = []
+        muon_c8 = []
         for i, primary in enumerate(prim_par):
             for settings in sim_group:
                 # full angle 1-100TeV
@@ -168,13 +171,18 @@ class GlobalSetting:
                                         id = i, energy_range=settings[1], costh_range=settings[2], primary_Z=prim_Z[i])
                 corsika_samples.append(c_s0)
                 muon_c8.append(c_s0.muons)
+                primary_c8.append(c_s0.primaries)
         muon_c8 = pd.concat(muon_c8)
+        primary_c8 = pd.concat(primary_c8)
         # restrict muons within certain region
         muon_c8 = muon_c8.loc[(muon_c8.x**2+muon_c8.y**2<(2e3**2))]
         # weight unit: [s-1 m-2]
         muon_c8['weight'] = muon_c8.weight / (math.pi * ( 2e3**2) )
 
         muon_c8.to_csv(muon_c8_path)
+        # weight unit: [s-1 m-2 sr-1]
+        primary_c8.to_csv(save_dir + '/primary_C8.csv')
+
 
     # Load / Save mupage muon
     muon_mupage_path = save_dir + 'muon_mupage.csv'
@@ -182,7 +190,7 @@ class GlobalSetting:
         muon_mupage = pd.read_csv(muon_mupage_path).set_index('shower')
     else:
         mp_path_list = glob.glob("/lustre/collider/mocen/project/hailing/atmos_muon/generator_workspace/evt/*.evt")
-        mupage_samples = MupageSamples(path_list=mp_path_list, energy_range=(1, 1e5), costh_range=(0,math.cos(85)), extended_can_radius=300)
+        mupage_samples = MupageSamples(path_list=mp_path_list, energy_range=(1, 1e5), costh_range=(0,math.cos(85/180*math.pi)), extended_can_radius=300)
         muon_mupage = mupage_samples.muons
         muon_mupage.to_csv(muon_mupage_path)
     plots = setup_plots(save_dir)
