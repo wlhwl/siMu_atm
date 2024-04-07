@@ -13,6 +13,7 @@ def draw_vertical_spectrum(myset, muon_corsika, muon_mupage, costh_cut=0.95, bin
         color = default_color_list[i]
 
         # Select down-going muons
+        costh_cut = 0
         muon = muon.loc[muon.nz<-1*costh_cut]
         ary, weights = muon.energy.to_numpy(), muon.weight.to_numpy()
 
