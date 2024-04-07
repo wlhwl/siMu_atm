@@ -6,7 +6,7 @@ import numpy as np
 def draw_muon_spectrum(myset, muon_corsika, muon_mupage, costh_cut=0.95, bins=np.logspace(2,5,31)):
     muon_ls = [muon_corsika, muon_mupage]
     name_ls = ["CORSIKA", "MUPAGE"]
-    pc = RatioPlotContainer(xlabel=r'$E_{\mu}$', ylabel=r'$EdN/dE [s^{-1}m^{-2}sr^{-1}]$', logx=True, logy=True, figname=myset.save_dir + 'muon_spectrum.pdf')
+    pc = RatioPlotContainer(xlabel=r'$E_{\mu}$', ylabel=r'$EdN/dE [s^{-1}m^{-2}sr^{-1}]$', logx=True, logy=True, figname=myset.save_dir + 'separate_muon_spectrum.pdf')
 
     for i in range(2):
         muon, name = muon_ls[i], name_ls[i]
@@ -63,7 +63,7 @@ def draw_muon_costh(myset, muon_corsika, muon_mupage, bins=np.linspace(0,1,41)):
     muon_ls = [muon_corsika, muon_mupage]
     name_ls = ["CORSIKA", "MUPAGE"]
 
-    pc = RatioPlotContainer(xlabel=r'cos$\theta$', ylabel=r'$dN/d\Omega dS dt\ \ [s^{-1}m^{-2}sr^{-1}]$', logx=False, logy=True, figname=myset.save_dir + 'muon_costh.pdf')
+    pc = RatioPlotContainer(xlabel=r'cos$\theta$', ylabel=r'$dN/d\Omega dS dt\ \ [s^{-1}m^{-2}sr^{-1}]$', logx=False, logy=True, figname=myset.save_dir + 'separate_muon_costh.pdf')
     for i in range(2):
         muon, name = muon_ls[i], name_ls[i]
         color = default_color_list[i]
