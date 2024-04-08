@@ -4,6 +4,7 @@ import math
 import glob
 import re
 import os
+import json
 from utils import *
 from PrimaryFluxModels import *
 
@@ -83,7 +84,7 @@ class CorsikaSamples:
         self.sample_radius = sample_radius # m
         self.obs_level = obs_level
         self.pars_paths = [p + '/particles/particles.parquet' for p in self.path_list]
-        self.json_list = [p + '/particle_list/particle_list.parquet' for p in self.path_list]
+        self.json_list = [p for p in self.path_list]
         self.particles, self.primaries = self.load_pars_and_prim()
         self.reweight_primary()
         self.muons = self.particles.loc[self.particles.pdg.abs()==13]
@@ -92,11 +93,18 @@ class CorsikaSamples:
         particles = []
         prims=[]
         shower_id_start = 0
-        for ibatch in range(len(self.pars_paths)):
+        for ibatch in range(len(self.path_list)):
             try:
-                cur_pars = pd.read_parquet(self.pars_paths[ibatch])
-                cur_prims = pd.read_parquet(self.json_list[ibatch])
-                cur_prims['E'] = cur_prims['begin_E']
+                with open(self.json_list[ibatch]) as f:
+                    f = json.load(f)
+                    cur_pars = pd.json_normalize(f, record_path='particles_at_detector', meta=['event_id'])
+                    cur_pars['shower'] = cur_pars.event_id
+                    cur_pars['pdg'] = cur_pars['pdgid']
+                    cur_pars['energy'] = np.linalg.norm(cur_pars[['px','py','pz']], axis=1)
+                    cur_prims = pd.json_normalize(f, record_path='particles_in', meta=['event_id'])
+                    cur_prims['shower'] = cur_prims.event_id
+                    cur_prims['E'] = np.linalg.norm(cur_prims[['px','py','pz']], axis=1)
+                    cur_prims['pdg'] = cur_prims['pdgid']
             except:
                 print(f'Error with file: {self.pars_paths[ibatch]}')
                 continue
@@ -116,7 +124,7 @@ class CorsikaSamples:
     
     def reweight_primary(self):
         # MC_spectrum_integral = np.log(self.energy_range[1]/self.energy_range[0])
-        MC_spectrum_integral = 1 / (1 / self.energy_range[0] - 1 / self.energy_range[1])
+        MC_spectrum_integral = (1 / self.energy_range[0] - 1 / self.energy_range[1])
         E_prim = self.primaries.E
         
         # MC primary energy spectrum PDF
@@ -154,30 +162,30 @@ class GlobalSetting:
         sample_detail_list = [
             # file_name, Z, energy_range, num_events
             # protons
-            ["sample_E1e3-1e4_02May2023/separate/", 1, [1e3, 1e4], 2e8],
-            ["sample_E1e4-1e5_01May2023/separate/", 1, [1e4, 1e5], 2e6],
-            ["sample_E1e5-1e6_12June2023/",1, [1e5, 1e6], 3e6],
-            ["sample_E1e6-1e7_12June2023/",1, [1e6, 1e7], 3e5],
+            ["sample_E1e3-1e4_02May2023/batch0/", 1, [1e3, 1e4], 2e8],
+            ["sample_E1e4-1e5_01May2023/batch0/", 1, [1e4, 1e5], 2e6],
+            ["sample_E1e5-1e6_12June2023/batch*/",1, [1e5, 1e6], 3e6],
+            ["sample_E1e6-1e7_12June2023/batch*/",1, [1e6, 1e7], 3e5],
             # He
-            ["sample_He_E1e3-1e4_19May2023/separate/", 2, [1e3, 1e4], 1e8],
-            ["sample_He_E1e4-1e5_19May2023/separate/", 2, [1e4, 1e5], 5e6],
-            ["sample_He_E1e5-1e6_19May2023/separate/", 2, [1e5, 1e6], 2.5e6],
-            ["sample_He_E1e6-1e8_19May2023/separate/", 2, [1e6, 1e8], 4.98e5],
+            ["sample_He_E1e3-1e4_19May2023/batch0/", 2, [1e3, 1e4], 1e8],
+            ["sample_He_E1e4-1e5_19May2023/batch0/", 2, [1e4, 1e5], 5e6],
+            ["sample_He_E1e5-1e6_19May2023/batch0/", 2, [1e5, 1e6], 2.5e6],
+            ["sample_He_E1e6-1e8_19May2023/batch0/", 2, [1e6, 1e8], 4.98e5],
             # CNO
-            ["sample_CNO_E1e4-5e4_2June2023/", 6, [1e4, 5e4], 8e7],
-            ["sample_CNO_E5e4-1e5_2June2023/", 6, [5e4, 1e5], 5e6],
-            ["sample_CNO_E1e5-1e6_2June2023/", 6, [1e5, 1e6], 1e6],
-            ["sample_CNO_E1e6-1e7_20June2023/", 6, [1e6, 1e7], 1e5],
+            ["sample_CNO_E1e4-5e4_2June2023/batch*/", 6, [1e4, 5e4], 8e7],
+            ["sample_CNO_E5e4-1e5_2June2023/batch*/", 6, [5e4, 1e5], 5e6],
+            ["sample_CNO_E1e5-1e6_2June2023/batch*/", 6, [1e5, 1e6], 1e6],
+            ["sample_CNO_E1e6-1e7_20June2023/batch*/", 6, [1e6, 1e7], 1e5],
             ["sample_CNO_E1e7-1e8/", 6, [1e7, 1e8], 19900],
             # Mg
-            ["sample_Mg_E3e4-1e5/", 12, [3e4, 1e5], 1e7],
-            ["sample_Mg_E1e5-1e6/", 12, [1e5, 1e6], 1e6],
-            ["sample_Mg_E1e6-1e7/", 12, [1e6, 1e7], 1e5],
-            ["sample_Mg_E1e7-1e8/", 12, [1e7, 1e8], 11600],
+            ["sample_Mg_E3e4-1e5/batch*/", 12, [3e4, 1e5], 1e7],
+            ["sample_Mg_E1e5-1e6/batch*/", 12, [1e5, 1e6], 1e6],
+            ["sample_Mg_E1e6-1e7/batch*/", 12, [1e6, 1e7], 1e5],
+            ["sample_Mg_E1e7-1e8/batch*/", 12, [1e7, 1e8], 11600],
             # Fe
-            ["sample_Fe_E6e4-1e5/", 26, [6e4, 1e5], 2e6],
-            ["sample_Fe_E1e5-1e6/", 26, [1e5, 1e6], 7.6e5],
-            ["sample_Fe_E1e6-1e7/", 26, [1e6, 1e7], 9.2e4],
+            ["sample_Fe_E6e4-1e5/batch*/", 26, [6e4, 1e5], 2e6],
+            ["sample_Fe_E1e5-1e6/batch*/", 26, [1e5, 1e6], 7.6e5],
+            ["sample_Fe_E1e6-1e7/batch*/", 26, [1e6, 1e7], 9.2e4],
         ]
         corsika_samples=[]
         primary_c8 = []
@@ -185,7 +193,7 @@ class GlobalSetting:
         total_showers = 0
         for fname, Z, energy_range, num_events in sample_detail_list:
             print(fname)
-            cor_path_list = glob.glob(sample_file_prefix + fname + "/batch*/")
+            cor_path_list = glob.glob(sample_file_prefix + fname + "/mc_events*.json")
             cur_sample = CorsikaSamples(
                 path_list=cor_path_list, primary_flux_model=primary_flux_model, num_events_list=[num_events], id=0, energy_range=energy_range, costh_range=[0,1], primary_Z=Z
             )
@@ -292,5 +300,6 @@ if __name__ == '__main__':
     ##corsika
     myset = GlobalSetting()
     muon_corsika, muon_mupage = restrict_muons([myset.muon_c8, myset.muon_mupage])
+    muon_corsika['nz'] = muon_corsika['pz'] / muon_corsika['energy']
    
     draw_muon_spectrum(myset=myset, muon_corsika=muon_corsika, muon_mupage=muon_mupage)
