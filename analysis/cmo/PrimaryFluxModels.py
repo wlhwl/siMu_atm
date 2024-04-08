@@ -103,6 +103,8 @@ class PolyGonatoModel(PrimaryFluxModel):
             6: [-2.68, 3.24e-2, 3.06e7],
             # Mg, here take it as O
             8: [-2.67, 3.16e-2, 6.48e7],
+            # Mg
+            12: [-2.67, 3.16e-2, 6.48e7],
             # Fe
             26: [-2.58, 2.18e-2, 1.17e8]
         }
