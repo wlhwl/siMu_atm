@@ -3,6 +3,29 @@ from config import *
 from utils import *
 import numpy as np
 
+def draw_depth_intensity_with_sealevel_intensity_and_energy_loss(ax_main):
+    from math import exp
+    def intensity_sea_level(Emu, zenith: float):
+        """
+        Emu in GeV, zenith in rad
+        return: dN/(dE dOmega dS dt) with unit 1/(m2 s sr GeV)
+        """
+        cs = math.cos(zenith)
+        return 0.14e4 * Emu**-2.7 * ( 1/(1 + 1.1*Emu*cs/115) + 0.054/(1 + 1.1*Emu*cs/850))
+
+    def destiny_energy(Emu, x):
+        # E: GeV, x: m
+        a = 0.274
+        b = 3.49e-4
+        return (Emu + a/b) * exp(-b*x) - a/b
+    Emu = np.logspace(2,5,51)
+    depth = 2500
+    y = intensity_sea_level(Emu, 0)
+    x = destiny_energy(Emu, depth)
+    y = y * x 
+    ax_main.plot(x,y, label='sealevel muon propa', linestyle='--')
+
+
 def draw_muon_spectrum(myset, muon_corsika, muon_mupage, costh_cut=0.95, bins=np.logspace(2,5,31)):
     muon_ls = [muon_corsika, muon_mupage]
     name_ls = ["CORSIKA", "MUPAGE"]
@@ -51,6 +74,7 @@ def draw_muon_spectrum(myset, muon_corsika, muon_mupage, costh_cut=0.95, bins=np
                 x_values=(bins[:-1]+bins[1:])/2
                 y_values = bin_contents/np.diff(bins)
                 pc.ax.plot(x_values, y_values, drawstyle='steps-mid', color=color, label=name+f' Z={Z:.0f}', linestyle='--')
+    # draw_depth_intensity_with_sealevel_intensity_and_energy_loss(pc.ax)
     # apply settings & draw ratio plot
     pc.draw_ratio(f'Mupage / CORSIKA', draw_error=True)
     pc.apply_settings(ratio_ylim=(0.1, 10), if_legend=False)
