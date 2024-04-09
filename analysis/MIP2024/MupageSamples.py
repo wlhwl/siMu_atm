@@ -11,7 +11,6 @@ class MupageSamples:
         self.muons, self.livetime, self.livetime_error = self.load_muons()
         self.reweight()
         self.num_showers = len(self.muons.index.unique())
-        self.define_plots_vars()
 
     def reweight(self):
         # weight unit: [s-1 m-2]
@@ -55,12 +54,3 @@ class MupageSamples:
             # merge shower
             muons = pd.concat([muons, df])
         return muons.set_index('shower'), livetime, livetime_error2**0.5
-
-    def define_plots_vars(self):
-        self.muons['R'] = np.linalg.norm(self.muons[['x', 'y']], axis=1)
-        self.muons['costh'] = -1*self.muons['nz']
-
-        self.shower_vars = pd.DataFrame(index=self.muons.index.unique())
-        self.shower_vars['showerEnergy'] = self.muons.energy.groupby('shower').sum()
-        self.shower_vars['muonMultiplicity'] = self.muons.multiplicity.groupby('shower').first()
-        self.shower_vars['timeDuration'] = self.muons.relativeT.groupby('shower').max() - self.muons.relativeT.groupby('shower').min()
