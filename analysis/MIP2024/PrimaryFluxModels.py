@@ -136,7 +136,8 @@ if __name__=='__main__':
         'poly-gonato': default_color_list[2],
     }
     for name, model in model_dict.items():
-        pc_cur = PlotContainer(logx=True, logy=True, xlabel=r'$Primary Energy$ [GeV]', ylabel=rf'$E^{{{E_POWER_INDEX}}}dN/dE$ [$m^{{-2}}s^{{-1}}sr^{{-1}}GeV^{{{E_POWER_INDEX-1:.1f}}}$]', 
+        PC = PlotContainer if name!= 'GSF' else RatioPlotContainer
+        pc_cur = PC(logx=True, logy=True, xlabel=r'Primary Energy [GeV]', ylabel=rf'$E^{{{E_POWER_INDEX}}}dN/dE$ [$m^{{-2}}s^{{-1}}sr^{{-1}}GeV^{{{E_POWER_INDEX-1:.1f}}}$]', 
             figname=plot_dir+f"model_{name}.pdf", x_values = x_values, ylim=(1, 1e5)) 
             
         total_flux = np.zeros_like(x_values)
@@ -151,7 +152,19 @@ if __name__=='__main__':
     for name_i, pc_cur in model_pc.items():
         for name_j, total_flux in model_total_flux.items():
             pc_cur.ax.plot(x_values, total_flux * x_values**E_POWER_INDEX, label=name_j+' Total', color=model_color[name_j], linewidth=2)
-        # Save current model flux
-        pc_cur.apply_settings(if_legend=True)
-        pc_cur.savefig()
+        
+        model_pc['GSF'].insert_data(
+            x_values=x_values, y_value=model_total_flux['GSF']*x_values**E_POWER_INDEX, ary_index=0, label=name_i
+        )
+        model_pc['GSF'].insert_data(
+            x_values=x_values, y_value=model_total_flux[name_i]*x_values**E_POWER_INDEX, ary_index=1, label=name_i
+        )
+        if name_i!='GSF':
+            # Save current model flux
+            pc_cur.apply_settings(if_legend=True)
+            pc_cur.savefig()
     
+    pc = model_pc['GSF']
+    pc.draw_ratio(f'Ratio to GSF', draw_error=False)
+    pc.apply_settings(if_legend=True, ratio_ylim=(0.5, 1.5))
+    pc.savefig()
