@@ -26,7 +26,7 @@ class PlotContainer:
             if (name != 'self') and (name != 'kwargs'):
                 setattr(self,name,value)
         if ax==None:
-            self.fig, self.ax = plt.subplots(figsize=(7, 5), dpi=600, constrained_layout=True)
+            self.fig, self.ax = plt.subplots(figsize=(6, 5), dpi=600, constrained_layout=True)
 
     def apply_settings(self, if_legend=False):
         if self.logy:
