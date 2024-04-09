@@ -128,9 +128,13 @@ if __name__=='__main__':
     # Plot settings
     E_POWER_INDEX = 2.7
     x_values = np.logspace(3,8,51)
-    pc_all_models = PlotContainer(logx=True, logy=True, xlabel=r'$Primary Energy$ [GeV]', ylabel=rf'$E^{{{E_POWER_INDEX}}}dN/dE$ [$m^{{-2}}s^{{-1}}sr^{{-1}}GeV^{{{E_POWER_INDEX-1:.1f}}}$]', 
-            title='', figname=plot_dir+"model_comparison.pdf", x_values = x_values, ylim=(1e3, 1e5))
-
+    model_total_flux = {}
+    model_pc = {}
+    model_color = {
+        'GST3': default_color_list[0],
+        'GSF': default_color_list[1],
+        'poly-gonato': default_color_list[2],
+    }
     for name, model in model_dict.items():
         pc_cur = PlotContainer(logx=True, logy=True, xlabel=r'$Primary Energy$ [GeV]', ylabel=rf'$E^{{{E_POWER_INDEX}}}dN/dE$ [$m^{{-2}}s^{{-1}}sr^{{-1}}GeV^{{{E_POWER_INDEX-1:.1f}}}$]', 
             figname=plot_dir+f"model_{name}.pdf", x_values = x_values, ylim=(1, 1e5)) 
@@ -139,15 +143,15 @@ if __name__=='__main__':
         for i, Z in enumerate(Z_list):
             flux = model(Z, x_values)
             # Draw flux for current Z
-            pc_cur.ax.plot(x_values, flux * x_values**E_POWER_INDEX, label=name + f' Z={Z}', color=default_color_list[i], linestyle='--')
+            pc_cur.ax.plot(x_values, flux * x_values**E_POWER_INDEX, label=name + f' Z={Z}', color=default_color_list[i+3], linestyle='--')
             total_flux += flux
+        model_total_flux[name] = total_flux
+        model_pc[name] = pc_cur
+
+    for name_i, pc_cur in model_pc.items():
+        for name_j, total_flux in model_total_flux.items():
+            pc_cur.ax.plot(x_values, total_flux * x_values**E_POWER_INDEX, label=name+' Total', color=model_color[name_j], linewidth=2)
         # Save current model flux
-        pc_cur.ax.plot(x_values, total_flux * x_values**E_POWER_INDEX, label=name+' Total', color=default_color_list[i+1], linewidth=2)
         pc_cur.apply_settings(if_legend=True)
         pc_cur.savefig()
-        pc_all_models.ax.plot(x_values, total_flux * x_values**E_POWER_INDEX, label=name+' Total', linewidth=2)
-
-    pc_all_models.apply_settings()
-    pc_all_models.ax.legend(loc='lower left')
-    pc_all_models.savefig()
     
