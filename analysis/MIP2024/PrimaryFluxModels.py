@@ -2,6 +2,7 @@ import numpy as np
 import pandas as pd
 from abc import ABC, abstractmethod
 from scipy.interpolate import interp1d
+from utils import *
 
 class PrimaryFluxModel(ABC):
     def __init__(self) -> None:
@@ -115,31 +116,38 @@ class PolyGonatoModel(PrimaryFluxModel):
 
 
 if __name__=='__main__':
+    plot_dir = './plots/'
     default_color_list = [u'#1f77b4', u'#ff7f0e', u'#2ca02c', u'#d62728', u'#9467bd', u'#8c564b', u'#e377c2', u'#7f7f7f', u'#bcbd22', u'#17becf']
-    energy = np.logspace(3, 8, 30)
     Z_list = [1, 2, 6, 8, 26]
     model_dict = {
-        # 'GST3': GST3Model(),
+        'GST3': GST3Model(),
         'GSF': GSFModel(),
         'poly-gonato': PolyGonatoModel(),
     }
 
-    import matplotlib.pyplot as plt
-    fig, ax = plt.subplots(figsize=(7, 5), dpi=600, constrained_layout=True)
+    # Plot settings
+    E_POWER_INDEX = 2.7
+    x_values = np.logspace(3,8,51)
+    pc_all_models = PlotContainer(logx=True, logy=True, xlabel=r'$Primary Energy$ [GeV]', ylabel=rf'$E^{{{E_POWER_INDEX}}}dN/dE$ [$m^{{-2}}s^{{-1}}sr^{{-1}}GeV^{{{E_POWER_INDEX-1:.1f}}}$]', 
+            title='', figname=plot_dir+"model_comparison.pdf", x_values = x_values, ylim=(1e3, 1e5))
+
     for name, model in model_dict.items():
-        linestyle = '--' if name=='GSF' else None
-        total_flux = np.zeros_like(energy)
+        pc_cur = PlotContainer(logx=True, logy=True, xlabel=r'$Primary Energy$ [GeV]', ylabel=rf'$E^{{{E_POWER_INDEX}}}dN/dE$ [$m^{{-2}}s^{{-1}}sr^{{-1}}GeV^{{{E_POWER_INDEX-1:.1f}}}$]', 
+            figname=plot_dir+f"model_{name}.pdf", x_values = x_values, ylim=(1, 1e5)) 
+            
+        total_flux = np.zeros_like(x_values)
         for i, Z in enumerate(Z_list):
-            # flux += model(Z, energy)
-            flux = model(Z, energy)
-            ax.plot(energy, flux * energy**2.6, label=name + f' Z={Z}', color=default_color_list[i], linestyle=linestyle)
+            flux = model(Z, x_values)
+            # Draw flux for current Z
+            pc_cur.ax.plot(x_values, flux * x_values**E_POWER_INDEX, label=name + f' Z={Z}', color=default_color_list[i], linestyle='--')
             total_flux += flux
-        ax.plot(energy, total_flux * energy**2.6, label=name+' Total', color='black', linewidth=2, linestyle=linestyle)
-    ax.set_ylabel(r'Flux$\times\ E^{2.6}$')
-    ax.set_xlabel(r'Energy [GeV]')
-    ax.set_yscale('log')
-    ax.set_xscale('log')
-    ax.legend()
-    fig.savefig('./save/model_comparison.pdf')
-    
+        # Save current model flux
+        pc_cur.ax.plot(x_values, total_flux * x_values**E_POWER_INDEX, label=name+' Total', color=default_color_list[i+1], linewidth=2)
+        pc_cur.apply_settings(if_legend=True)
+        pc_cur.savefig()
+        pc_all_models.ax.plot(x_values, total_flux * x_values**E_POWER_INDEX, label=name+' Total', linewidth=2)
+
+    pc_all_models.apply_settings()
+    pc_all_models.ax.legend(loc='lower left')
+    pc_all_models.savefig()
     
