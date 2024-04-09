@@ -16,7 +16,7 @@ class MupageSamples:
         # weight unit: [s-1 m-2]
         weight = 1 / self.livetime / (math.pi * self.extended_can_radius**2)
         # restrict muons within certain region
-        self.muons = self.muons.loc[(self.muons.x**2+self.muons.y**2<(self.extended_can_radius**2))]
+        self.muons = self.muons.loc[(self.muons.x**2+self.muons.y**2<((self.extended_can_radius-1)**2))]
         self.muons['weight'] = weight
 
     def load_muons(self):

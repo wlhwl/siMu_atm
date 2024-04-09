@@ -6,12 +6,12 @@ import copy
 
 def draw_muon_distribution(myset, muon):
     plots = {
-        'energy': PlotContainer(logx=True, logy=True, xlabel=r'$E_\mu$ [GeV]', ylabel=rf'$E_\mu dN/dE$ [$m^{{-2}}s^{{-1}}sr^{{-1}}$]', 
-            title='', figname=myset.plot_dir+"muon_spectrum.pdf", bins = np.logspace(2, 5, 31), var_name='energy', weight_scale_cz=1, ylim=(1e-11, 1e-4)),
-        'vertical energy spectrum': PlotContainer(logx=True, logy=True, xlabel=r'Vertical Muon $E_\mu$ [GeV]', ylabel=rf'$E_\mu dN/dE$ [$m^{{-2}}s^{{-1}}sr^{{-1}}$]', 
-            title='', figname=myset.plot_dir+"muon_spectrum_vertical.pdf", bins = np.logspace(2, 5, 31), czcut=0.95, var_name='energy', weight_scale_cz=1/0.05, ylim=(1e-11, 1e-4)),
-        'nz': PlotContainer(logx=False, logy=True, xlabel=r'$cos(\theta)$', ylabel=rf'$dN/dcos\theta$ [$m^{{-2}}s^{{-1}}sr^{{-1}}$]', 
-            title='', figname=myset.plot_dir+"muon_cosz.pdf", bins = np.linspace(-1, 0, 31), var_name='nz', weight_scale_cz=1) 
+        'energy': PlotContainer(logx=True, logy=True, xlabel=r'$E_\mu$ [GeV]', ylabel=rf'E$_\mu$ dN/dE [$m^{{-2}}s^{{-1}}sr^{{-1}}$]', 
+            title='', figname=myset.plot_dir+"muon_spectrum.pdf", bins = np.logspace(2, 5, 21), var_name='energy', weight_scale_cz=1, ylim=(1e-11, 1e-4)),
+        'vertical energy spectrum': PlotContainer(logx=True, logy=True, xlabel=r'Vertical Muon $E_\mu$ [GeV]', ylabel=rf'E$_\mu$ dN/dE [$m^{{-2}}s^{{-1}}sr^{{-1}}$]', 
+            title='', figname=myset.plot_dir+"muon_spectrum_vertical.pdf", bins = np.logspace(2, 5, 21), czcut=0.95, var_name='energy', weight_scale_cz=1/0.05, ylim=(1e-11, 1e-4)),
+        'nz': PlotContainer(logx=False, logy=True, xlabel=r'$cos(\theta)$', ylabel=rf'dN/dcos$\theta$ [$m^{{-2}}s^{{-1}}sr^{{-1}}$]', 
+            title='', figname=myset.plot_dir+"muon_cosz.pdf", bins = np.linspace(-1, 0, 21), var_name='nz', weight_scale_cz=1) 
     }
 
     # Loop to draw
@@ -54,55 +54,51 @@ def draw_muon_distribution(myset, muon):
         pc.apply_settings(if_legend=True)
         pc.savefig()
 
-def draw_bundle_var(myset, muon_corsika, muon_mupage):
-    # Draw bundle variables
-    muon_ls = [muon_corsika, muon_mupage]
-    name_ls = ["CORSIKA", "MUPAGE"]
-
+def draw_bundle_var(myset, muon):
     # Define vars to draw
     plots = {
-        'multiplicity': RatioPlotContainer(xlabel='Multiplicity, m', ylabel=r'$dN/dm dS dt\ \ [s^{-1}m^{-2}]$', logx=False, logy=True, figname=myset.save_dir + 'bundle_multiplicity.pdf', bins=np.linspace(0.5, 40.5, 41), functor='count') ,
-        'bund_energy': RatioPlotContainer(xlabel=r'Bundle Energy [GeV]', ylabel=r'$EdN/dE dS dt\ \ [s^{-1}m^{-2}]$', logx=True, logy=True, figname=myset.save_dir + 'bundle_energy.pdf', bins=np.logspace(2, 6, 41), functor='sum') ,
+        'multiplicity': PlotContainer(xlabel='Multiplicity, m', ylabel=r'dN/dm $[s^{-1}m^{-2}]$', logx=False, logy=True, figname=myset.plot_dir + 'bundle_multiplicity.pdf', bins=np.linspace(0.5, 40.5, 21), functor='count') ,
+        'bund_energy': PlotContainer(xlabel=r'Bundle Energy [GeV]', ylabel=r'EdN/dE $[s^{-1}m^{-2}]$', logx=True, logy=True, figname=myset.plot_dir + 'bundle_energy.pdf', bins=np.logspace(2, 6, 21), functor='sum') ,
     }
 
     for var, pc in plots.items():
         bins = pc.bins
         functor = pc.functor
-        for i, muon in enumerate(muon_ls):
-            color = default_color_list[i]
-            ary = muon.groupby('shower')['energy'].agg(functor).to_numpy()
-            weights = muon.groupby('shower')['weight'].first().to_numpy()
-            if 'energy' in var:
-                weights = weights * ary
+        ary = muon.groupby('shower')['energy'].agg(functor).to_numpy()
+        weight = muon.groupby('shower')['weight'].first().to_numpy()
+        primary_Z = muon.groupby('shower')['primary_Z'].first().to_numpy()
+        if 'energy' in var:
+            weight = weight * ary
 
-            # Insert array
-            bin_contents, bins = np.histogram(ary, bins=bins, weights=weights)
+        # Insert array
+        bin_contents, bins = np.histogram(ary, bins=bins, weights=weight)
+        x_values = (bins[1:]+bins[:-1])/2
 
-            # y_value: dN/dx/dS/dt
-            y_value = bin_contents/np.diff(bins)
-            hist, bins, _ = pc.ax.hist(bins[:-1], bins=bins, weights=y_value, label=name_ls[i], histtype="step", linewidth=2, color=color)
+        # Draw result
+        color = default_color_list[0]
+        y_values = bin_contents/np.diff(bins)
+        pc.ax.step(x_values, y_values, label="Total", where='mid', linewidth=2, color=color)
+        # Calculate errors
+        y_err2, bins = np.histogram(ary, bins=bins, weights=(weight)**2)
+        y_err = y_err2**0.5 / np.diff(bins)
+        pc.ax.errorbar(x_values, y_values, yerr=y_err, fmt='none', color=color)
 
-            # Calculate errors
-            y_err2, bins = np.histogram(ary, bins=bins, weights=(weights)**2)
-            y_err = y_err2**0.5 / np.diff(bins)
-            pc.ax.errorbar((bins[1:]+bins[:-1])/2, y_value, yerr=y_err, fmt='none', color=color)
-            pc.insert_data(
-                x_values=(bins[:-1]+bins[1:])/2, 
-                y_value=hist, ary_index=i, label='flux', y_err=y_err, color=color
-            )
+        # Categorize into primary 
+        for j, Z in enumerate(np.unique(primary_Z)):
+            color = default_color_list[j+1]
+            mask = (primary_Z==Z)
+            tmp_ary, tmp_weight = ary[mask], weight[mask]
+            bin_contents, bins = np.histogram(tmp_ary, bins=bins, weights=tmp_weight)
+            y_values = bin_contents/np.diff(bins)
+            pc.ax.plot(x_values, y_values, drawstyle='steps-mid', color=color, label=f'Z={Z:.0f}', linestyle='--')
 
-        # apply settings & draw ratio plot
-        pc.draw_ratio(f'Mupage / CORSIKA', draw_error=True)
-        pc.apply_settings(ratio_ylim=(0.1, 10), if_legend=False)
-        pc.ax_ratio.set_yscale('log')
-        legend_loc = None 
-        pc.ax.legend(fontsize=7, loc=legend_loc)
+        pc.apply_settings(if_legend=True)
         pc.savefig()
 
 def compare_flux_models(myset, muon, model_name_list=["GSF", "GST3", "PolyGonato"]):
     pc = RatioPlotContainer(logx=True, logy=True, xlabel=r'$E_\mu$ [GeV]', ylabel=rf'$E_\mu dN/dE$ [$m^{{-2}}s^{{-1}}sr^{{-1}}$]', 
             title='', figname=myset.plot_dir+"muon_spectrum_all_models.pdf", var_name='energy', weight_scale_cz=1)
-    bins = np.logspace(2,5,31)
+    bins = np.logspace(2,5,21)
     x_values = (bins[1:]+bins[:-1])/2
     ary = muon['energy'].to_numpy()
     nominal_model = 'GSF'
@@ -146,9 +142,11 @@ if __name__ == '__main__':
 
     compare_flux_models(myset=myset, muon=muon_corsika)
 
+    draw_bundle_var(myset=myset, muon=muon_corsika)
+
     # Draw primary spectrum
-    pc =  PlotContainer(xlabel=r'Primary Energy [GeV]', ylabel=r'$EdN/dE dS dt\ \ [s^{-1}m^{-2}]$', logx=True, logy=True, figname=myset.plot_dir + 'primary_spectrum.pdf') 
-    bins=np.logspace(3, 7.5, 41)
+    pc =  PlotContainer(xlabel=r'Primary Energy [GeV]', ylabel=r'EdN/dE  $[s^{-1}m^{-2}]$', logx=True, logy=True, figname=myset.plot_dir + 'primary_spectrum.pdf') 
+    bins=np.logspace(3, 7.5, 21)
     muon = muon_corsika
     ary = muon.groupby('shower')['primary_energy'].first().to_numpy()
     weights = muon.groupby('shower')['weight'].first().to_numpy() * ary 
