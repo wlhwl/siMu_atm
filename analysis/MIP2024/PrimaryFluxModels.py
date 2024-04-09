@@ -150,7 +150,7 @@ if __name__=='__main__':
 
     for name_i, pc_cur in model_pc.items():
         for name_j, total_flux in model_total_flux.items():
-            pc_cur.ax.plot(x_values, total_flux * x_values**E_POWER_INDEX, label=name+' Total', color=model_color[name_j], linewidth=2)
+            pc_cur.ax.plot(x_values, total_flux * x_values**E_POWER_INDEX, label=name_j+' Total', color=model_color[name_j], linewidth=2)
         # Save current model flux
         pc_cur.apply_settings(if_legend=True)
         pc_cur.savefig()
