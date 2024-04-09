@@ -100,17 +100,21 @@ class RatioPlotContainer(PlotContainer):
                 y_err0=None, y_err1=None,
             )
             # Save value
-            self.dict_label_xyvalues[label]['color'] = copy.copy(color)
+            if color is not None:
+                self.dict_label_xyvalues[label]['color'] = copy.copy(color)
             self.dict_label_xyvalues[label]['x_values'] = copy.copy(x_values)
             self.dict_label_xyvalues[label][f'y_values{ary_index}'] = copy.copy(y_value)
             self.dict_label_xyvalues[label][f'y_err{ary_index}'] = copy.copy(y_err)
         elif (self.dict_label_xyvalues.get(label).get(f'y_values{ary_index}') is None) or (not add_if_exist):
             # Insert / replace an item
+            if color is not None:
+                self.dict_label_xyvalues[label]['color'] = copy.copy(color)
             self.dict_label_xyvalues[label][f'y_values{ary_index}'] = copy.copy(y_value)
             self.dict_label_xyvalues[label][f'y_err{ary_index}'] = copy.copy(y_err)
         else:
             # add y_value
-            self.dict_label_xyvalues[label]['color'] = copy.copy(color)
+            if color is not None:
+                self.dict_label_xyvalues[label]['color'] = copy.copy(color)
             self.dict_label_xyvalues[label]['x_values'] = copy.copy(x_values)
             self.dict_label_xyvalues[label][f'y_values{ary_index}'] += y_value
             y_value = self.dict_label_xyvalues[label][f'y_values{ary_index}'] 

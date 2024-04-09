@@ -162,6 +162,7 @@ class SeaLevelSample:
             ic_energy = np.logspace(3.8, 5.6, 19)
             ic_flux = cls.icecube_sea_level_vertical_muon_flux(ic_energy)
             ax.plot(ic_energy, ic_flux*ic_energy**E_power_index, label='IceCube Fit', linestyle='--', zorder=3, color='red', linewidth=2)
+        return x_values, y_values, y_err
 
 
 if __name__=='__main__':
@@ -186,50 +187,33 @@ if __name__=='__main__':
     # Compare different primary model
     # Plot settings
     E_power_index = 3.2
-    pc = PlotContainer( logx=True, logy=True, xlabel=r'$E_\mu$ [GeV]', ylabel=rf'$E_\mu^{{{E_power_index}}}dN/dE$ [$m^{{-2}}s^{{-1}}sr^{{-1}}GeV^{{{E_power_index-1:.1f}}}$]', 
-            title='', figname=plot_dir+"sealevel_flux.pdf", bins = np.logspace(2, 6, 41))
+    pc = RatioPlotContainer( logx=True, logy=True, xlabel=r'$E_\mu$ [GeV]', ylabel=rf'$E_\mu^{{{E_power_index}}}dN/dE$ [$m^{{-2}}s^{{-1}}sr^{{-1}}GeV^{{{E_power_index-1:.1f}}}$]', 
+            title='', figname=plot_dir+"sealevel_flux.pdf", )
+    bins = np.logspace(2, 5.5, 31)
+    x_values = (bins[1:]+bins[:1])/2
+
+    # Relative value: analytical one
+    analytical_intensity = SeaLevelSample.intensity_sea_level(x_values, zenith=0)
+    relative_y_values = analytical_intensity*x_values**E_power_index
+    relative_y_err = np.zeros_like(relative_y_values)
 
     for i, model_name in enumerate(list(SeaLevelSample.MODEL_DICT.keys())):
+        color = default_color_list[i]
+
+        # Insert relative value
+        pc.insert_data(x_values=x_values, y_value=relative_y_values, ary_index=0, label=model_name, y_err=relative_y_err)
+
         # Get new weight
-        # Set new weight to muon
         muon['weight'] = muon["weight_"+model_name]
         # Draw flux
-        SeaLevelSample.draw_vertical_muon_flux_sea_level(muon, ax=pc.ax, color=default_color_list[i], label=f'CORSIKA: {model_name}', bins=pc.bins, draw_aux_line=(model_name==SeaLevelSample.NOMINAL_MODEL_NAME))
+        x_values, y_values, y_err = SeaLevelSample.draw_vertical_muon_flux_sea_level(muon, ax=pc.ax_main, E_power_index=E_power_index, color=color, label=f'CORSIKA: {model_name}', bins=bins, draw_aux_line=(model_name==SeaLevelSample.NOMINAL_MODEL_NAME))
+        pc.insert_data(
+            x_values=x_values, y_value=y_values, ary_index=1, label=model_name, y_err=y_err, color=color
+        )
 
-    pc.apply_settings(if_legend=True)
+    pc.draw_ratio(f'Ratio to Analytical', draw_error=True)
+    pc.apply_settings(if_legend=True, ratio_ylim=(0.5, 2))
     pc.savefig()
-    # # Flux models
-    # Z_list = [1, 2, 6, 8, 26]
-    # model_dict = {
-    #     "GSF": GSFModel(),
-    #     "GST3": GST3Model(),
-    #     "PolyGonato": PolyGonatoModel(), # Reference model
-    # }
-    # reference_model_name = "PolyGonato"
-    # # Get reference flux
-    # E_prim = primary['energy'].to_numpy()
-    # reference_flux = np.zeros_like(E_prim)
-    # for Z in Z_list:
-    #     reference_flux += model_dict[reference_model_name](Z=Z, E=E_prim)
-
-    # for i, items in enumerate(model_dict.items()):
-    #     model_name, model = items
-    #     # Get new weight
-    #     prim_reweight = np.ones_like(primary['weight'])
-    #     if model_name!=reference_model_name:
-    #         new_flux = np.zeros_like(E_prim)
-    #         for Z in Z_list:
-    #             new_flux += model_dict[model_name](Z=Z, E=E_prim)
-    #         prim_reweight = new_flux / reference_flux
-        
-    #     # Set new weight to muon
-    #     muon['weight'] = (primary['weight']*prim_reweight).loc[muon.index]
-
-    #     # Draw flux
-    #     SeaLevelSample.new_draw_vertical_muon_flux_sea_level(muon, ax=pc.ax, color=default_color_list[i], label=f'CORSIKA: {model_name}', bins=pc.bins, draw_aux_line=(model_name==reference_model_name))
-
-    # pc.apply_settings(if_legend=True)
-    # pc.savefig()
 
             
 
