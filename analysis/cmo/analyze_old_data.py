@@ -225,7 +225,7 @@ class GlobalSetting:
         muon_mupage = pd.read_csv(muon_mupage_path).set_index('shower')
     else:
         mp_path_list = glob.glob("/lustre/collider/mocen/project/hailing/MUPAGE/TRIDENT/evt/mupage-run_01.evt")
-        mupage_samples = MupageSamples(path_list=mp_path_list, energy_range=(1, 1e5), costh_range=(0,math.cos(85/180*math.pi)), extended_can_radius=300)
+        mupage_samples = MupageSamples(path_list=mp_path_list, energy_range=(1, 1e5), costh_range=(0,math.cos(85/180*math.pi)), extended_can_radius=2000)
         muon_mupage = mupage_samples.muons
         muon_mupage.to_csv(muon_mupage_path)
 
@@ -240,7 +240,7 @@ def draw_muon_spectrum(myset, muon_corsika, muon_mupage, costh_cut=0.95, bins=np
 
         # Select down-going muons
         costh_cut = 0
-        muon = muon.loc[muon.nz<-1*costh_cut]
+        muon = muon.loc[muon.nz.abs()>costh_cut]
         ary, weights = muon.energy.to_numpy(), muon.weight.to_numpy()
 
         # Considering sr in weight
