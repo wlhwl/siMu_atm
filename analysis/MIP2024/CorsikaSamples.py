@@ -4,11 +4,17 @@ import math
 import glob
 import re
 import os
+from PrimaryFluxModels import *
 
 class CorsikaSamples:
-    def __init__(self, path_list, josn_list, num_events_list, id, energy_range, costh_range, primary_flux_model, primary_Z=1, 
-             sample_radius=(285**2+2e3**2)**0.5, obs_level='det_level') -> None:
-        self.primary_flux_model = primary_flux_model
+    NOMINAL_MODEL_NAME="GSF"
+    MODEL_DICT = {
+        "GSF": GSFModel(),
+        "GST3": GST3Model(),
+        "PolyGonato": PolyGonatoModel()
+    }
+    def __init__(self, path_list, josn_list, num_events_list, id, energy_range, costh_range, primary_Z=1, 
+             sample_radius=(285**2+2e3**2)**0.5, detect_radius=2000, obs_level='det_level') -> None:
         self.path_list = path_list
         self.json_list = josn_list
         self.num_events_list = num_events_list
@@ -17,6 +23,7 @@ class CorsikaSamples:
         self.costh_range = costh_range
         self.primary_Z = primary_Z
         self.sample_radius = sample_radius # m
+        self.detect_radius = detect_radius
         self.obs_level = obs_level
         self.pars_paths = [p + 'particles_' + obs_level + '/particles.parquet' for p in self.path_list]
         self.particles, self.primaries = self.load_pars_and_prim()
@@ -63,6 +70,13 @@ class CorsikaSamples:
         MC_pdf = MC_energy_pdf / (self.costh_range[1]-self.costh_range[0]) / (2*math.pi) / (math.pi * self.sample_radius**2)
 
         # reweight: target PDF divided by (MC PDF times num_events)
-        # self.primaries['weight'] = 1 / MC_pdf / sum(self.num_events_list) * self.primary_flux_model(Z=self.primary_Z, E=E_prim)
-        self.primaries['weight'] = 1 / MC_pdf / len(self.primaries) * self.primary_flux_model(Z=self.primary_Z, E=E_prim)
-        self.particles['weight'] = self.primaries["weight"].loc[self.particles.index]
+        # weight unit: s-1 m-2
+        for name, model in self.MODEL_DICT.items():
+            self.primaries['weight_'+name] = 1 / MC_pdf / len(self.primaries) * model(Z=self.primary_Z, E=E_prim)
+            # restrict particle radius
+            self.particles = self.particles.loc[self.particles.x**2 + self.particles.y**2 < self.detect_radius**2]
+            self.particles['weight_'+name] = self.primaries["weight_"+name].loc[self.particles.index] / (math.pi * self.detect_radius**2)
+            self.primaries["weight_"+name] = self.primaries["weight_"+name] / (math.pi * self.sample_radius**2)
+            if name==self.NOMINAL_MODEL_NAME:
+                self.primaries['weight'] = self.primaries['weight_'+name]
+                self.particles['weight'] = self.particles['weight_'+name]
