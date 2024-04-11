@@ -57,7 +57,7 @@ def draw_muon_distribution(myset, muon):
 def draw_bundle_var(myset, muon):
     # Define vars to draw
     plots = {
-        'multiplicity': PlotContainer(xlabel='Multiplicity, m', ylabel=r'dN/dm $[s^{-1}m^{-2}]$', logx=False, logy=True, figname=myset.plot_dir + 'bundle_multiplicity.pdf', bins=np.linspace(0.5, 40.5, 21), functor='count') ,
+        'multiplicity': PlotContainer(xlabel='Multiplicity, m', ylabel=r'dN/dm $[s^{-1}m^{-2}]$', logx=False, logy=True, figname=myset.plot_dir + 'bundle_multiplicity.pdf', bins=np.linspace(0.5, 30.5, 31), functor='count') ,
         'bund_energy': PlotContainer(xlabel=r'Bundle Energy [GeV]', ylabel=r'EdN/dE $[s^{-1}m^{-2}]$', logx=True, logy=True, figname=myset.plot_dir + 'bundle_energy.pdf', bins=np.logspace(2, 6, 21), functor='sum') ,
     }
 

@@ -1,119 +1,86 @@
 import numpy as np
 import pandas as pd
 import math
-import json
+import glob
+import re
 import os
 from PrimaryFluxModels import *
-from utils import *
 
-
-class SeaLevelSample:
-    # Constants
-    RAW_POWER_INDEX = -1
-    SAMPLE_AREA = math.pi * 500**2
-    SAMPLE_SUFFIX = "mc_events.json"
-    DETECT_RADIUS = 400 # m
+class CorsikaSealevelSamples:
     NOMINAL_MODEL_NAME="GSF"
     MODEL_DICT = {
-        "PolyGonato": PolyGonatoModel(),
-        "GST3": GST3Model(),
         "GSF": GSFModel(),
+        "GST3": GST3Model(),
+        "PolyGonato": PolyGonatoModel()
     }
-    def __init__(self, primary_flux_model=PolyGonatoModel()) -> None:
-        # Primary flux model
-        self.primary_flux_model = primary_flux_model
+    def __init__(self, path_list, josn_list, num_events_list, id, energy_range, costh_range, primary_Z=1, 
+             sample_radius=500, detect_radius=400, obs_level='det_level') -> None:
+        self.path_list = path_list
+        self.json_list = josn_list
+        self.num_events_list = num_events_list
+        self.id = id
+        self.energy_range = energy_range # GeV
+        self.costh_range = costh_range
+        self.primary_Z = primary_Z
+        self.sample_radius = sample_radius # m
+        self.detect_radius = detect_radius
+        self.obs_level = obs_level
+        self.pars_paths = [p + 'particles_' + obs_level + '/particles.parquet' for p in self.path_list]
+        self.particles, self.primaries = self.load_pars_and_prim()
+        self.reweight_primary()
+        self.muons = self.particles.loc[self.particles.pdg.abs()==13]
 
-        # sample paths
-        # only protons are simulated
-        path_prefix = "/lustre/collider/mocen/project/hailing/data/atm_muon/dataStore/sealevel/"
-        self.sample_path_list = [
-            # [energy range (GeV), num_events_per_batch, path_list]
-            [[1e2, 1e3], 1e6, [path_prefix+f"E1e2-1e3_5June2023/separate/batch{i}/" for i in range(1)]], 
-            [[1e3, 1e4], 1e6, [path_prefix+f"E1e3-1e4_5June2023/separate/batch{i}/" for i in range(1)]], 
-            [[1e4, 1e5], 1e5, [path_prefix+f"E1e4-1e5_5June2023/separate/batch{i}/" for i in range(10)]], 
-            [[1e5, 1e6], 1e4, [path_prefix+f"E1e5-1e6_5June2023/separate/batch{i}/" for i in range(100)]], 
-            [[1e6, 1e7], 1e3, [path_prefix+f"E1e6-1e7_5June2023/batch{i}/" for i in range(50)]], 
-            [[1e7, 1e8], 100, [path_prefix+f"E1e7-1e8_5June2023/batch{i}/" for i in range(20)]], 
-        ]
-        # load particles
-        self.primaries, self.muons = self.load_samples()
-    
-    def load_samples(self):
-        # Log for all samples
-        all_prims, all_muons= [], []
-        # global shower id of each batch
+    def load_pars_and_prim(self):
+        particles = []
+        prims=[]
         shower_id_start = 0
-        for energy_range, num_events_per_batch, sample_path in self.sample_path_list:
-            print("Loading ", sample_path)
-            # Log for current sample
-            num_sample_events = 0
-            sample_prims, sample_muons = [], []
-            for batch in sample_path:
-                # Load json file
-                with open(batch+self.SAMPLE_SUFFIX) as f:
-                    particles = json.load(f)
-                primary = pd.json_normalize(particles, record_path='particles_in', meta=['event_id'])
-                muons = pd.json_normalize(particles, record_path='particles_at_detector', meta=['event_id'])
-                muons = muons.loc[muons['pdgid'].abs()==13]
-                muons = muons.loc[muons.x**2+muons.y**2<self.DETECT_RADIUS**2]
-                del particles
-                # Get energy
-                primary['energy'] = np.linalg.norm(primary[['px','py','pz']], axis=1)
-                muons['energy'] = np.linalg.norm(muons[['px','py','pz']], axis=1)
-                # Set index to be shower
-                primary['shower'] = primary['event_id'] + shower_id_start
-                muons['shower'] = muons['event_id'] + shower_id_start
-                muons = muons.set_index('shower')
-                primary = primary.set_index('shower').loc[muons.index.unique()] # only record primaries that contain informations
-                # Increas shower_id_start and num_sample_events
-                shower_id_start += num_events_per_batch
-                num_sample_events += num_events_per_batch
-                # Save current batch
-                sample_prims.append(primary)
-                sample_muons.append(muons)
-                del primary, muons
+        for ibatch in range(len(self.pars_paths)):
+            try:
+                cur_pars = pd.read_parquet(self.pars_paths[ibatch])
+                file_path = self.json_list[ibatch]
+                with open(file_path, 'r') as file:
+                    file_content = file.read()
+                file_content_fixed = re.sub(r'"pdg":.*\n', '', file_content)
+                cur_prims =  pd.read_json(file_content_fixed)
+                cur_prims['E'] = cur_prims['E0']
+            except:
+                print(f'Error with file: {self.pars_paths[ibatch]}')
+                continue
+            merge = cur_pars.merge(cur_prims, on='shower', how='left')
 
-            # Merge batch 
-            sample_prims, sample_muons = pd.concat(sample_prims), pd.concat(sample_muons)
-            # Reweight current sample
-            sample_prims, sample_muons = self.reweight_particles(primaries=sample_prims, particles=sample_muons, energy_range=energy_range, num_sample_events=num_sample_events)
-            sample_muons['weight'] = sample_prims["weight"].loc[sample_muons.index]
-            # Save current sample
-            all_prims.append(sample_prims)
-            all_muons.append(sample_muons)
-            del sample_prims, sample_muons
-        all_prims, all_muons = pd.concat(all_prims), pd.concat(all_muons)
-        return all_prims, all_muons
-
-    def reweight_particles(self, primaries, particles, energy_range, num_sample_events):
-        # primary energy
-        E_prim = primaries['energy'].to_numpy()
-        # Normalization factor for MC PDF
-        MC_spectrum_integral = 0
-        if self.RAW_POWER_INDEX==-1:
-            MC_spectrum_integral = np.log(energy_range[1]/energy_range[0])
-        else:
-            MC_spectrum_integral = (self.RAW_POWER_INDEX+1) * (energy_range[1]**(self.RAW_POWER_INDEX+1) - energy_range[0]**(self.RAW_POWER_INDEX+1))
+            cur_pars['energy'] = cur_pars.kinetic_energy + 0.1
+            # Record primary information
+            cur_pars['primary_energy'] = merge['E']
+            cur_pars['primary_Z'] = self.primary_Z
+            cur_prims.shower += shower_id_start
+            cur_prims['Z'] = self.primary_Z
+            cur_pars.shower += shower_id_start
+            shower_id_start += self.num_events_list[ibatch]
+            particles.append(cur_pars)
+            prims.append(cur_prims)
+        return pd.concat(particles).set_index('shower'), pd.concat(prims).set_index('shower')
+    
+    def reweight_primary(self):
+        MC_spectrum_integral = np.log(self.energy_range[1]/self.energy_range[0])
+        E_prim = self.primaries.E
         
         # MC primary energy spectrum PDF
-        MC_energy_pdf = E_prim**self.RAW_POWER_INDEX / MC_spectrum_integral 
-        # MC primary PDF
-        MC_pdf = MC_energy_pdf / (2*math.pi*1) / (self.SAMPLE_AREA)
+        MC_energy_pdf = E_prim**-1 / MC_spectrum_integral 
 
-        # truth_flux = np.zeros_like(E_prim)
+        # MC primary PDF
+        MC_pdf = MC_energy_pdf / (self.costh_range[1]-self.costh_range[0]) / (2*math.pi) / (math.pi * self.sample_radius**2)
+
+        # reweight: target PDF divided by (MC PDF times num_events)
         # weight unit: s-1 m-2
         for name, model in self.MODEL_DICT.items():
-            # Get truth flux. Assume all particles are equal to proton
-            truth_flux = np.zeros_like(E_prim)
-            for Z in [1, 2, 6, 8, 26]:
-                truth_flux += model(Z=Z, E=E_prim)
-            primaries['weight_'+name] = 1 / MC_pdf / num_sample_events * truth_flux
-            particles['weight_'+name] = primaries["weight_"+name].loc[particles.index]  / (math.pi * self.DETECT_RADIUS**2)
-            primaries["weight_"+name] = primaries["weight_"+name] / (self.SAMPLE_AREA)
+            self.primaries['weight_'+name] = 1 / MC_pdf / len(self.primaries) * model(Z=self.primary_Z, E=E_prim)
+            # restrict particle radius
+            self.particles = self.particles.loc[self.particles.x**2 + self.particles.y**2 < self.detect_radius**2]
+            self.particles['weight_'+name] = self.primaries["weight_"+name].loc[self.particles.index] / (math.pi * self.detect_radius**2)
+            self.primaries["weight_"+name] = self.primaries["weight_"+name] / (math.pi * self.sample_radius**2)
             if name==self.NOMINAL_MODEL_NAME:
-                primaries['weight'] = primaries['weight_'+name]
-                particles['weight'] = particles['weight_'+name]
-        return primaries, particles
+                self.primaries['weight'] = self.primaries['weight_'+name]
+                self.particles['weight'] = self.particles['weight_'+name]
         
     @staticmethod
     def intensity_sea_level(Emu, zenith: float):
@@ -133,9 +100,9 @@ class SeaLevelSample:
         return 9e-13*(energy/50000)**(-3.74)
 
     @classmethod
-    def draw_vertical_muon_flux_sea_level(cls, muon, ax, color=None, label='CORSIKA8', E_power_index=2.7, costh_cut=0.88, bins=np.logspace(2,6,41), draw_aux_line=True):
+    def draw_vertical_muon_flux_sea_level(cls, muon, ax, color=None, label='CORSIKA8', E_power_index=2.7, costh_cut=0.9, bins=np.logspace(2,6,41), draw_aux_line=True):
         # Select muons
-        muon = muon.loc[muon.pz.abs()/muon.energy>costh_cut]
+        muon = muon.loc[muon['nz'].abs()>costh_cut]
         ary, weights = muon['energy'].to_numpy(), muon['weight'].to_numpy()
 
         # Considering sr in weight
@@ -156,7 +123,7 @@ class SeaLevelSample:
         if draw_aux_line:
             # Draw Analytical function
             analytical_intensity = cls.intensity_sea_level(x_values, zenith=0)
-            ax.plot(x_values, analytical_intensity*x_values**E_power_index, label="Analytical", linewidth=2)
+            ax.plot(x_values, analytical_intensity*x_values**E_power_index, label="Analytical", linewidth=2, color=default_color_list[4])
 
             # Draw IceCube result
             ic_energy = np.logspace(3.8, 5.6, 19)
@@ -164,26 +131,50 @@ class SeaLevelSample:
             ax.plot(ic_energy, ic_flux*ic_energy**E_power_index, label='IceCube Fit', linestyle='--', zorder=3, color='red', linewidth=2)
         return x_values, y_values, y_err
 
-
 if __name__=='__main__':
     save_dir = './save/'
     plot_dir = './plots/'
-    os.makedirs(save_dir, exist_ok=True)
-    os.makedirs(plot_dir, exist_ok=True)
 
-    # Load / Save muon and primary
-    muon_path, primary_path = save_dir + 'sealevel_muon.csv', save_dir+'sealevel_primary.csv'
-    if os.path.exists(muon_path) and os.path.exists(primary_path):
-        muon = pd.read_csv(muon_path).set_index('shower')
-        # primary = pd.read_csv(primary_path).set_index('shower')
+    # Load / Save Corsika8 muon
+    muon_c8_path = save_dir + 'C8_sealevel_muon.parquet'
+    primary_path = save_dir + '/C8_sealevel_primary.parquet'
+
+    if os.path.exists(muon_c8_path) and os.path.exists(primary_path):
+        muons = pd.read_parquet(muon_c8_path).set_index('shower')
     else:
-        samples = SeaLevelSample()
-        muon, primary = samples.muons, samples.primaries
-        samples.muons.to_csv(muon_path)
-        primary.to_csv(primary_path)
+        prim_par = ['p','He','C','O','Fe']
+        prim_Z = [1, 2, 6, 8, 26]
+        sim_group = [
+                    ['out_100G-100T_lydmjqdkyi',[1e2, 1e5],[0.9, 1],[[2000], [2000], [2000], [2000], [2000]]],
+                    ['out_100T-100P_lydmjqdkyi',[1e5, 1e8],[0.9, 1],[[2000],[2000],[2000],[2000],[2000]]],
+                ]
+        corsika_samples=[]
+        primary_c8 = []
+        muons = []
+        total_showers = 0
+        for i, primary_name in enumerate(prim_par):
+            for settings in sim_group:
+                # full angle 1-100TeV
+                cor_path_list = glob.glob('/lustre/neutrino/huangweilun/atmos_muon/COR_atm_muon/test_proton/bin/' + primary_name + '/' + settings[0] + '/part*/my_shower/')
+                cor_json_list = glob.glob('/lustre/neutrino/huangweilun/atmos_muon/COR_atm_muon/test_proton/bin/' + primary_name + '/' + settings[0] + '/part*/Primaries.json')
+                c_s0 = CorsikaSealevelSamples(path_list=cor_path_list,  josn_list=cor_json_list,
+                                    num_events_list=np.multiply(np.ones_like(cor_path_list,np.double),settings[3][i]),
+                                        id = i, energy_range=settings[1], costh_range=settings[2], primary_Z=prim_Z[i])
+                corsika_samples.append(c_s0)
+                cur_muon = c_s0.muons
+                cur_muon.index += total_showers
+                muons.append(cur_muon)
+                primary = c_s0.primaries
+                primary.index += total_showers
+                primary_c8.append(primary)
+                total_showers += len(primary)
+        muons = pd.concat(muons)
+        primary_c8 = pd.concat(primary_c8)
+        muons.to_parquet(muon_c8_path)
+        # weight unit: [s-1 m-2 sr-1]
+        primary_c8.to_parquet(primary_path)
 
     # Draw muon flux
-
     # Compare different primary model
     # Plot settings
     E_power_index = 3.2
@@ -193,27 +184,28 @@ if __name__=='__main__':
     x_values = (bins[1:]+bins[:1])/2
 
     # Relative value: analytical one
-    analytical_intensity = SeaLevelSample.intensity_sea_level(x_values, zenith=0)
+    analytical_intensity = CorsikaSealevelSamples.intensity_sea_level(x_values, zenith=0)
     relative_y_values = analytical_intensity*x_values**E_power_index
     relative_y_err = np.zeros_like(relative_y_values)
 
-    for i, model_name in enumerate(list(SeaLevelSample.MODEL_DICT.keys())):
+    for i, model_name in enumerate(list(CorsikaSealevelSamples.MODEL_DICT.keys())):
         color = default_color_list[i]
 
         # Insert relative value
         pc.insert_data(x_values=x_values, y_value=relative_y_values, ary_index=0, label=model_name, y_err=relative_y_err)
 
         # Get new weight
-        muon['weight'] = muon["weight_"+model_name]
+        muons['weight'] = muons["weight_"+model_name] * 1.5
         # Draw flux
-        x_values, y_values, y_err = SeaLevelSample.draw_vertical_muon_flux_sea_level(muon, ax=pc.ax_main, E_power_index=E_power_index, color=color, label=f'CORSIKA: {model_name}', bins=bins, draw_aux_line=(model_name==SeaLevelSample.NOMINAL_MODEL_NAME))
+        x_values, y_values, y_err = CorsikaSealevelSamples.draw_vertical_muon_flux_sea_level(muons, ax=pc.ax_main, E_power_index=E_power_index, color=color, label=f'CORSIKA: {model_name}', bins=bins, draw_aux_line=(model_name=="PolyGonato"))
         pc.insert_data(
             x_values=x_values, y_value=y_values, ary_index=1, label=model_name, y_err=y_err, color=color
         )
 
     pc.draw_ratio(f'Ratio to Analytical', draw_error=True)
-    pc.apply_settings(if_legend=True, ratio_ylim=(0.5, 2))
+    pc.apply_settings(if_legend=True, ratio_ylim=(0., 2))
     pc.savefig()
 
             
+
 
