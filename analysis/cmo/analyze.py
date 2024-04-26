@@ -3,7 +3,30 @@ from config import *
 from utils import *
 import numpy as np
 
-def draw_vertical_spectrum(myset, muon_corsika, muon_mupage, costh_cut=0.95, bins=np.logspace(2,5,31)):
+def draw_depth_intensity_with_sealevel_intensity_and_energy_loss(ax_main):
+    from math import exp
+    def intensity_sea_level(Emu, zenith: float):
+        """
+        Emu in GeV, zenith in rad
+        return: dN/(dE dOmega dS dt) with unit 1/(m2 s sr GeV)
+        """
+        cs = math.cos(zenith)
+        return 0.14e4 * Emu**-2.7 * ( 1/(1 + 1.1*Emu*cs/115) + 0.054/(1 + 1.1*Emu*cs/850))
+
+    def destiny_energy(Emu, x):
+        # E: GeV, x: m
+        a = 0.274
+        b = 3.49e-4
+        return (Emu + a/b) * exp(-b*x) - a/b
+    Emu = np.logspace(2,5,51)
+    depth = 2500
+    y = intensity_sea_level(Emu, 0)
+    x = destiny_energy(Emu, depth)
+    y = y * x 
+    ax_main.plot(x,y, label='sealevel muon propa', linestyle='--')
+
+
+def draw_muon_spectrum(myset, muon_corsika, muon_mupage, costh_cut=0.95, bins=np.logspace(2,5,31)):
     muon_ls = [muon_corsika, muon_mupage]
     name_ls = ["CORSIKA 8", "MUPAGE"]
     pc = RatioPlotContainer(xlabel=r'$E_{\mu} [GeV]$', ylabel=r'$EdN/dE [s^{-1}m^{-2}sr^{-1}]$', logx=True, logy=True, figname=myset.save_dir + 'vertical_muon_primaries_spectrum.jpg')
@@ -13,7 +36,6 @@ def draw_vertical_spectrum(myset, muon_corsika, muon_mupage, costh_cut=0.95, bin
         color = default_color_list[i]
 
         # Select down-going muons
-        costh_cut = 0
         muon = muon.loc[muon.nz<-1*costh_cut]
         ary, weights = muon.energy.to_numpy(), muon.weight.to_numpy()
 
@@ -51,43 +73,134 @@ def draw_vertical_spectrum(myset, muon_corsika, muon_mupage, costh_cut=0.95, bin
                 x_values=(bins[:-1]+bins[1:])/2
                 y_values = bin_contents/np.diff(bins)
                 pc.ax.plot(x_values, y_values, drawstyle='steps-mid', color=color, label=name+f' Z={Z:.0f}', linestyle='--')
+    # draw_depth_intensity_with_sealevel_intensity_and_energy_loss(pc.ax)
     # apply settings & draw ratio plot
     pc.draw_ratio(f'Mupage / CORSIKA', draw_error=True)
     pc.apply_settings(ratio_ylim=(0.1, 10), if_legend=False)
     pc.ax_ratio.set_yscale('log')
-    legend_loc = pc.legend_loc if hasattr(pc, 'legend_loc') else None
+    pc.ax.legend(fontsize=7, loc=None)
+    pc.savefig()
+
+
+def draw_muon_costh(myset, muon_corsika, muon_mupage, bins=np.linspace(0,1,41)):
+    muon_ls = [muon_corsika, muon_mupage]
+    name_ls = ["CORSIKA", "MUPAGE"]
+
+    pc = RatioPlotContainer(xlabel=r'cos$\theta$', ylabel=r'$dN/d\Omega dS dt\ \ [s^{-1}m^{-2}sr^{-1}]$', logx=False, logy=True, figname=myset.save_dir + 'separate_muon_costh.pdf')
+    for i in range(2):
+        muon, name = muon_ls[i], name_ls[i]
+        color = default_color_list[i]
+        ary, weights = -1*muon.nz.to_numpy(), muon.weight.to_numpy()
+
+        # Considering sr in weight
+        # weights unit: s-1 m-2 rad-1
+        weights = weights / (2*math.pi)
+        bin_contents, bins = np.histogram(ary, bins=bins, weights=weights)
+
+        # y_value: dN/dcosth/dOmega/dS/dt
+        y_value = bin_contents/np.diff(bins)
+        hist, bins, _ = pc.ax.hist(bins[:-1], bins=bins, weights=y_value, label=name, histtype="step", linewidth=2, color=color)
+
+        # Calculate errors
+        y_err2, bins = np.histogram(ary, bins=bins, weights=(weights)**2)
+        y_err = y_err2**0.5 / np.diff(bins)
+        pc.ax.errorbar((bins[1:]+bins[:-1])/2, y_value, yerr=y_err, fmt='none', color=color)
+        pc.insert_data(
+            x_values=(bins[:-1]+bins[1:])/2, 
+            y_value=hist, ary_index=i, label='flux', y_err=y_err, color=color
+        )
+    # apply settings & draw ratio plot
+    pc.draw_ratio(f'Mupage / CORSIKA', draw_error=True)
+    pc.apply_settings(ratio_ylim=(0.1, 10), if_legend=False)
+    pc.ax_ratio.set_yscale('log')
+    legend_loc = "upper left"
     pc.ax.legend(fontsize=7, loc=legend_loc)
     pc.savefig()
     
+
+def draw_bundle_var(myset, muon_corsika, muon_mupage):
+    # Draw bundle variables
+    muon_ls = [muon_corsika, muon_mupage]
+    name_ls = ["CORSIKA", "MUPAGE"]
+
+    # Define vars to draw
+    plots = {
+        'multiplicity': RatioPlotContainer(xlabel='Multiplicity, m', ylabel=r'$dN/dm dS dt\ \ [s^{-1}m^{-2}]$', logx=False, logy=True, figname=myset.save_dir + 'bundle_multiplicity.pdf', bins=np.linspace(0.5, 40.5, 41), functor='count') ,
+        'bund_energy': RatioPlotContainer(xlabel=r'Bundle Energy [GeV]', ylabel=r'$EdN/dE dS dt\ \ [s^{-1}m^{-2}]$', logx=True, logy=True, figname=myset.save_dir + 'bundle_energy.pdf', bins=np.logspace(2, 6, 41), functor='sum') ,
+    }
+
+    for var, pc in plots.items():
+        bins = pc.bins
+        functor = pc.functor
+        for i, muon in enumerate(muon_ls):
+            color = default_color_list[i]
+            ary = muon.groupby('shower')['energy'].agg(functor).to_numpy()
+            weights = muon.groupby('shower')['weight'].first().to_numpy()
+            if 'energy' in var:
+                weights = weights * ary
+
+            # Insert array
+            bin_contents, bins = np.histogram(ary, bins=bins, weights=weights)
+
+            # y_value: dN/dx/dS/dt
+            y_value = bin_contents/np.diff(bins)
+            hist, bins, _ = pc.ax.hist(bins[:-1], bins=bins, weights=y_value, label=name_ls[i], histtype="step", linewidth=2, color=color)
+
+            # Calculate errors
+            y_err2, bins = np.histogram(ary, bins=bins, weights=(weights)**2)
+            y_err = y_err2**0.5 / np.diff(bins)
+            pc.ax.errorbar((bins[1:]+bins[:-1])/2, y_value, yerr=y_err, fmt='none', color=color)
+            pc.insert_data(
+                x_values=(bins[:-1]+bins[1:])/2, 
+                y_value=hist, ary_index=i, label='flux', y_err=y_err, color=color
+            )
+
+        # apply settings & draw ratio plot
+        pc.draw_ratio(f'Mupage / CORSIKA', draw_error=True)
+        pc.apply_settings(ratio_ylim=(0.1, 10), if_legend=False)
+        pc.ax_ratio.set_yscale('log')
+        legend_loc = None 
+        pc.ax.legend(fontsize=7, loc=legend_loc)
+        pc.savefig()
+
+def restrict_muons(muon_list):
+    for i in range(len(muon_list)):
+        muon = muon_list[i]
+        # Restrict muons to be in the upper surface
+        muon = muon.loc[muon.z>499]
+        # Restrict muon energy to be 100~1e5 GeV
+        muon = muon.loc[(muon.energy>100) & (muon.energy<1e5)]
+        muon_list[i] = muon
+    return muon_list
+
 if __name__ == '__main__':
     ##corsika
     myset = GlobalSetting()
-    muon_corsika = myset.muon_c8
-    muon_mupage = myset.muon_mupage
+    muon_corsika, muon_mupage = restrict_muons([myset.muon_c8, myset.muon_mupage])
    
-    draw_vertical_spectrum(myset=myset, muon_corsika=muon_corsika, muon_mupage=muon_mupage)
+    draw_muon_spectrum(myset=myset, muon_corsika=muon_corsika, muon_mupage=muon_mupage)
 
-    exit(0)
-    plots = myset.plots
-    variables = list(plots.keys())
-    
-    for var in variables:
-        pc = plots.get(var)
-        to_draw = muon_corsika[var]
-        bins = pc.bins if hasattr(pc, 'bins') else 30
-        
-        hist_w, bin_w = np.histogram(to_draw, bins,weights=muon_corsika['weight']*muon_corsika['kinetic_energy']*2*np.pi)
-        hist_w = hist_w / np.diff(bin_w)
+    # Draw costh
+    draw_muon_costh(myset=myset, muon_corsika=muon_corsika, muon_mupage=muon_mupage)
 
-        hist_raw, _ = np.histogram(to_draw, bins)
-        err = hist_w / np.sqrt(hist_raw)
+    # Draw boundle variables
+    draw_bundle_var(myset=myset, muon_corsika=muon_corsika, muon_mupage=muon_mupage)
 
-        hist_mp, bin_mp = np.histogram(mp_particles['energy'],bins,weights=mp_particles['energy']*mp_weight)
-        hist_mp = hist_mp / np.diff(bin_mp)
-        
-        # pc.ax.plot((bin_w[1:]+bin_w[:-1])/2,hist_w,linestyle='--',label='sim')
-        pc.ax.errorbar((bins[1:]+bins[:-1])/2, hist_w, yerr=err, label="corsika")
-        pc.ax.plot((bins[1:]+bins[:-1])/2,hist_mp, label="mupage")
-        pc.ax.legend()
-        pc.apply_settings()
-        pc.savefig()
+    # Draw primary spectrum
+    pc =  PlotContainer(xlabel=r'Primary Energy [GeV]', ylabel=r'$EdN/dE dS dt\ \ [s^{-1}m^{-2}]$', logx=True, logy=True, figname=myset.save_dir + 'C8_primary_spectrum.pdf') 
+    bins=np.logspace(3, 7.5, 41)
+    muon = muon_corsika
+    ary = muon.groupby('shower')['primary_energy'].first().to_numpy()
+    weights = muon.groupby('shower')['weight'].first().to_numpy() * ary 
+    bin_contents, bins = np.histogram(ary, bins=bins, weights=weights)
+
+    # y_value: dN/dx/dS/dt
+    y_value = bin_contents/np.diff(bins)
+    hist, bins, _ = pc.ax.hist(bins[:-1], bins=bins, weights=y_value, histtype="step", linewidth=2)
+
+    # Calculate errors
+    y_err2, bins = np.histogram(ary, bins=bins, weights=(weights)**2)
+    y_err = y_err2**0.5 / np.diff(bins)
+    pc.ax.errorbar((bins[1:]+bins[:-1])/2, y_value, yerr=y_err, fmt='none')
+    pc.apply_settings()
+    pc.savefig()
