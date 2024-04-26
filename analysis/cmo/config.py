@@ -162,17 +162,23 @@ class GlobalSetting:
         corsika_samples=[]
         primary_c8 = []
         muon_c8 = []
-        for i, primary in enumerate(prim_par):
+        total_showers = 0
+        for i, primary_name in enumerate(prim_par):
             for settings in sim_group:
                 # full angle 1-100TeV
-                cor_path_list = glob.glob('/media/ineffablord/T7/siMu_atm/data/' + primary + '/' + settings[0] + '/part*/my_shower/')
-                cor_json_list = glob.glob('/media/ineffablord/T7/siMu_atm/data/' + primary + '/' + settings[0] + '/part*/Primaries.json')
+                cor_path_list = glob.glob('/lustre/neutrino/huangweilun/atmos_muon/COR_atm_muon/test_proton/bin/' + primary_name + '/' + settings[0] + '/part*/my_shower/')
+                cor_json_list = glob.glob('/lustre/neutrino/huangweilun/atmos_muon/COR_atm_muon/test_proton/bin/' + primary_name + '/' + settings[0] + '/part*/Primaries.json')
                 c_s0 = CorsikaSamples(path_list=cor_path_list,  josn_list=cor_json_list, primary_flux_model=primary_flux_model,
                                     num_events_list=np.multiply(np.ones_like(cor_path_list,np.double),settings[3][i]),
                                         id = i, energy_range=settings[1], costh_range=settings[2], primary_Z=prim_Z[i])
                 corsika_samples.append(c_s0)
-                muon_c8.append(c_s0.muons)
-                primary_c8.append(c_s0.primaries)
+                muons = c_s0.muons
+                muons.index += total_showers
+                muon_c8.append(muons)
+                primary = c_s0.primaries
+                primary.index += total_showers
+                primary_c8.append(primary)
+                total_showers += len(primary)
         muon_c8 = pd.concat(muon_c8)
         primary_c8 = pd.concat(primary_c8)
         # restrict muons within certain region
