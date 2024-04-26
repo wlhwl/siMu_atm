@@ -87,6 +87,33 @@ class GSFModel(PrimaryFluxModel):
     def __call__(self, Z, E):
         return self.flux_calculator[Z](E)
         
+class Poly_GonatoModel(PrimaryFluxModel):
+    def __init__(self):
+        super().__init__()
+        gamma_c = -4.7
+        epsilon_c = 1.87
+        self.flux_single_population = lambda GammaPhiE_Z_List,Z,E: GammaPhiE_Z_List[1] * E ** GammaPhiE_Z_List[0] * (1+(E/GammaPhiE_Z_List[2])**epsilon_c)**((gamma_c-GammaPhiE_Z_List[0])/epsilon_c)
+        self.parameter_table = {
+            # proton
+            1: [-2.71, 8.73*10**(-2), 4.5*10**6],
+            # He
+            2: [-2.64, 5.71*10**(-2), 9*10**6],
+            # C
+            6: [-2.68, 3.24*10**(-2), 3.06*10**7],
+            # O
+            8: [-2.68, 3.24*10**(-2), 3.06*10**7],
+            # Mg
+            12: [-2.67, 3.16*10**(-2), 6.48*10**7],
+            # Fe
+            26: [-2.58, 2.18*10**(-2), 1.17*10**8]
+        }
+    
+    def __call__(self, Z, E):
+        parameter_list = self.parameter_table[Z]
+        flux = np.zeros_like(E)
+        for GammaPhiE_Z_List in parameter_list:
+            flux += self.flux_single_population(GammaPhiE_Z_List=GammaPhiE_Z_List, Z=Z, E=E)
+        return flux
 
 
 if __name__=='__main__':

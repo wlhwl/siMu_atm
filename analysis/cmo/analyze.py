@@ -5,8 +5,8 @@ import numpy as np
 
 def draw_vertical_spectrum(myset, muon_corsika, muon_mupage, costh_cut=0.95, bins=np.logspace(2,5,31)):
     muon_ls = [muon_corsika, muon_mupage]
-    name_ls = ["CORSIKA", "MUPAGE"]
-    pc = RatioPlotContainer(xlabel=r'$E_{\mu}$', ylabel=r'$EdN/dE [s^{-1}m^{-2}sr^{-1}]$', logx=True, logy=True, figname=myset.save_dir + 'vertical_muon_spectrum.jpg')
+    name_ls = ["CORSIKA 8", "MUPAGE"]
+    pc = RatioPlotContainer(xlabel=r'$E_{\mu} [GeV]$', ylabel=r'$EdN/dE [s^{-1}m^{-2}sr^{-1}]$', logx=True, logy=True, figname=myset.save_dir + 'vertical_muon_primaries_spectrum.jpg')
 
     for i in range(2):
         muon, name = muon_ls[i], name_ls[i]
@@ -18,7 +18,7 @@ def draw_vertical_spectrum(myset, muon_corsika, muon_mupage, costh_cut=0.95, bin
         ary, weights = muon.energy.to_numpy(), muon.weight.to_numpy()
 
         # Considering sr in weight
-        # weights unit: GeV s-1 m-2 rad-1
+        # new weights unit: GeV s-1 m-2 rad-1
         weights = weights / (2*math.pi*(1-costh_cut)) * ary
         bin_contents, bins = np.histogram(ary, bins=bins, weights=weights)
 

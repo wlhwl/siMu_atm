@@ -141,7 +141,7 @@ def setup_plots(save_dir:str, plots:dict=None):
     return plots
 
 class GlobalSetting:
-    save_dir = './save/'
+    save_dir = './save_GSF/'
     os.makedirs(save_dir, exist_ok=True)
 
     # Load / Save Corsika8 muon
@@ -149,8 +149,9 @@ class GlobalSetting:
     if os.path.exists(muon_c8_path):
         muon_c8 = pd.read_csv(muon_c8_path).set_index('shower')
     else:
-        # primary_flux_model = GST3Model()
-        primary_flux_model = GSFModel()
+        primary_flux_model = GST3Model()
+        #primary_flux_model = GSFModel()
+        #primary_flux_model = Poly_GonatoModel()
         prim_par = ['p','He','C','O','Fe']
         prim_Z = [1, 2, 6, 8, 26]
         group_file = ['out_1-100T','out_100T-100P_lydmbadkyi','out_100T-100P_lydmsidklydmba','out_100T-100P_lydklydmsi']
@@ -164,8 +165,8 @@ class GlobalSetting:
         for i, primary in enumerate(prim_par):
             for settings in sim_group:
                 # full angle 1-100TeV
-                cor_path_list = glob.glob('/lustre/neutrino/huangweilun/atmos_muon/COR_atm_muon/test_proton/bin/' + primary + '/' + settings[0] + '/part*/my_shower/')
-                cor_json_list = glob.glob('/lustre/neutrino/huangweilun/atmos_muon/COR_atm_muon/test_proton/bin/' + primary + '/' + settings[0] + '/part*/Primaries.json')
+                cor_path_list = glob.glob('/media/ineffablord/T7/siMu_atm/data/' + primary + '/' + settings[0] + '/part*/my_shower/')
+                cor_json_list = glob.glob('/media/ineffablord/T7/siMu_atm/data/' + primary + '/' + settings[0] + '/part*/Primaries.json')
                 c_s0 = CorsikaSamples(path_list=cor_path_list,  josn_list=cor_json_list, primary_flux_model=primary_flux_model,
                                     num_events_list=np.multiply(np.ones_like(cor_path_list,np.double),settings[3][i]),
                                         id = i, energy_range=settings[1], costh_range=settings[2], primary_Z=prim_Z[i])
@@ -180,16 +181,15 @@ class GlobalSetting:
         muon_c8['weight'] = muon_c8.weight / (math.pi * ( 2e3**2) )
 
         muon_c8.to_csv(muon_c8_path)
-        # weight unit: [s-1 m-2 sr-1]
+        # weight unit: [s-1]
         primary_c8.to_csv(save_dir + '/primary_C8.csv')
-
 
     # Load / Save mupage muon
     muon_mupage_path = save_dir + 'muon_mupage.csv'
     if os.path.exists(muon_mupage_path):
         muon_mupage = pd.read_csv(muon_mupage_path).set_index('shower')
     else:
-        mp_path_list = glob.glob("/lustre/collider/mocen/project/hailing/atmos_muon/generator_workspace/evt/*.evt")
+        mp_path_list = glob.glob("/media/ineffablord/T7/siMu_atm/data/mupage/3.5-2.5/*.evt")
         mupage_samples = MupageSamples(path_list=mp_path_list, energy_range=(1, 1e5), costh_range=(0,math.cos(85/180*math.pi)), extended_can_radius=300)
         muon_mupage = mupage_samples.muons
         muon_mupage.to_csv(muon_mupage_path)
