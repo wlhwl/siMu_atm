@@ -1,7 +1,7 @@
 from matplotlib import pyplot as plt
 import numpy as np
 import pandas as pd
-from utils import *
+import os
 
 det_height = 600
 det_radius = 200
@@ -46,13 +46,17 @@ if __name__ == '__main__':
     
     fig = plt.figure()
     ax = fig.add_subplot(111, projection='3d')
-    scatter = ax.scatter(poor_guys['x'], poor_guys['y'],500, c=-poor_guys['nz'], cmap='viridis',vmin=0.0,vmax=1,s=0.5)
+    scatter = ax.scatter(poor_guys['x'], poor_guys['y'],500, c=poor_guys['energy'], cmap='viridis',vmin=100,vmax=500)
     ax.quiver(poor_guys['x'], poor_guys['y'],500, 200*poor_guys['nx'], 200*poor_guys['ny'], 200*poor_guys['nz'],
-               colors=plt.cm.viridis(-poor_guys['nz']),arrow_length_ratio=0.1)
+               colors=plt.cm.viridis(poor_guys['energy']/500),arrow_length_ratio=0.05)
     det_area()
     ax.set_zlim(-300,300)
     ax.set_xlim(-200,200)
     ax.set_ylim(-200,200)
-    plt.colorbar(scatter)
+    ax.set_ylabel('y [m]')
+    ax.set_xlabel('x [m]')
+    ax.set_zlabel('z [m]')
+    cbar=plt.colorbar(scatter)
+    cbar.set_label('Energy [GeV]')
     
     plt.show()
