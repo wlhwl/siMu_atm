@@ -1,4 +1,5 @@
 #include "TTree.h"
+#include <iostream>
 
 class filter {
 public:
@@ -6,9 +7,11 @@ public:
     ~filter();
     void create_filtered_tree(std::string& );
     void apply_L2(int );
+
+    TTree* get_filtered_tree(){
+        return filtered_tree;
+    };
     
-
-
 private:
     TTree* tree;
     TTree* filtered_tree;

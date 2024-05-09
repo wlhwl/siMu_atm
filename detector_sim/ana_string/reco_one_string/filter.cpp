@@ -52,11 +52,6 @@ void filter::apply_L2(int dom_num_thres){
             }
         }
         if(doms.size() >= dom_num_thres){
-            fil_br.branches[0]->Fill();
-            fil_br.branches[1]->Fill();
-            fil_br.branches[2]->Fill();
-            fil_br.branches[3]->Fill();
-            fil_br.branches[4]->Fill();
             filtered_tree->Fill();
         }
         fil_vec.EventId->clear();
@@ -66,5 +61,4 @@ void filter::apply_L2(int dom_num_thres){
         fil_vec.t->clear();
     }
     filtered_tree->Write("",TObject::kOverwrite);
-    delete filtered_tree;
 }

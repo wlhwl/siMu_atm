@@ -2,9 +2,9 @@
 #include <iostream>
 #include "TTree.h"
 #include "TFile.h"
-#include "TBranch.h"
-#include <random>
+#include "../fit.hpp"
 #include "../filter.hpp"
+#include "../process_g4_npe.hpp"
 #include "../root_editor.hpp"
 
 int main(int argc, char** argv){
@@ -16,11 +16,18 @@ int main(int argc, char** argv){
     }
 
     TTree* tree = root_editor::load_tree(root_file.get(),"string_tree");
-
+ 
+    process_g4_npe npe_process(tree);
+    npe_process.set_qe_file("../qe.csv");
+    npe_process.set_tts(1.3);
+    npe_process.process();
+    
     filter filter_obj(tree);
     filter_obj.apply_L2(4);
-    
+    TTree* filtered_tree = filter_obj.get_filtered_tree();
+
+    fit::graph_fit(filtered_tree);
+   
     root_file->Close();
-    
     return 0;
-}                             
+}                                                                           

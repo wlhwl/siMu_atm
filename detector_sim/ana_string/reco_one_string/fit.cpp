@@ -30,36 +30,30 @@ void fit::graph_fit(TTree* tree){
     std::vector<int> *domid = new std::vector<int>();
     // std::vector<double> *zenith = new std::vector<double>();
     double coszenith;
-    std::vector<int> *pe = new std::vector<int>();
     std::vector<float> *eventid = new std::vector<float>();
+
     TBranch* eventid_branch = root_editor::load_branch(tree, "EventId", &eventid);
     TBranch* t_branch = root_editor::load_branch(tree, "t", &t);
     TBranch* domid_branch = root_editor::load_branch(tree, "DomId", &domid);
     TBranch* zenith_branch = root_editor::load_branch(tree, "coszenith", &coszenith);
-    TBranch* pe_branch = root_editor::load_branch(tree, "pe", &pe);
 
-    int entries = tree->GetEntries();
 
+    int entries = tree->GetEntries();;
     for (int i=0; i<entries; i++){
 
         eventid_branch->GetEntry(i);
+        std::cout<<"eventid: "<<eventid->at(0)<<std::endl;
         t_branch->GetEntry(i);
         domid_branch->GetEntry(i);
-        pe_branch->GetEntry(i);
         zenith_branch->GetEntry(i);
-        
-        std::cout<<"event id: "<<eventid->at(0)<<std::endl;
-        int n = std::count_if(pe->begin(), pe->end(), [](double val) { return val != 0; });
-        
+
+        int n = domid->size();
         TGraph *gr = new TGraph(n);
 
         double zmin = -300;
         double zmax = 300;
 
         for (int j=0; j<n; j++){
-            if(pe->at(j)==0){
-                continue;
-            }
             gr->SetPoint(j, 300-30*(domid->at(j)), t->at(j));
             zmin = std::min<double>(zmin, double(300-30*(domid->at(j))));
             zmax = std::max<double>(zmax, double(300-30*(domid->at(j))));
@@ -78,7 +72,5 @@ void fit::graph_fit(TTree* tree){
     delete t;
     delete domid;
     delete eventid;
-    // delete zenith;
-    delete pe;
 
 }
