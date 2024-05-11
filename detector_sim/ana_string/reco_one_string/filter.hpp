@@ -7,6 +7,8 @@ public:
     ~filter();
     void create_filtered_tree(std::string& );
     void apply_L2(int );
+    void first_hit();
+
 
     TTree* get_filtered_tree(){
         return filtered_tree;
@@ -31,7 +33,7 @@ private:
         std::vector<float>* EventId = nullptr;
         std::vector<float>* PmtId = nullptr;
         std::vector<float>* DomId = nullptr;
-        std::vector<float>* pe = nullptr;
+        std::vector<int>* pe = nullptr;
         std::vector<float>* t0 = nullptr;
         std::vector<float>* e0 = nullptr;
         std::vector<float>* wavelength = nullptr;
