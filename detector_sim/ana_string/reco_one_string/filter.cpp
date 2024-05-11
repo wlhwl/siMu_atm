@@ -40,7 +40,7 @@ void filter::apply_L2(int dom_num_thres){
     for(int i = 0; i < tree->GetEntries(); i++){
         root_editor::branches_getentry(tree_br,i);
         root_editor::branches_getentry(fil_br,i);
-        std::set<int> doms;
+        std::set<float> doms;
         for(int j = 0; j < tree_vec.DomId->size(); j++){
             if(tree_vec.pe->at(j) > 0){
                 doms.insert(tree_vec.DomId->at(j));
@@ -61,4 +61,8 @@ void filter::apply_L2(int dom_num_thres){
         fil_vec.t->clear();
     }
     filtered_tree->Write("",TObject::kOverwrite);
+}
+
+void filter::first_hit(){
+    
 }

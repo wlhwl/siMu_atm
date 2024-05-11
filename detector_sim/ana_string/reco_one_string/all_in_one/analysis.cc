@@ -17,10 +17,10 @@ int main(int argc, char** argv){
 
     TTree* tree = root_editor::load_tree(root_file.get(),"string_tree");
  
-    process_g4_npe npe_process(tree);
-    npe_process.set_qe_file("../qe.csv");
-    npe_process.set_tts(1.3);
-    npe_process.process();
+    // process_g4_npe npe_process(tree);
+    // npe_process.set_qe_file("../qe.csv");
+    // npe_process.set_tts(1.3);
+    // npe_process.process();
     
     filter filter_obj(tree);
     filter_obj.apply_L2(4);

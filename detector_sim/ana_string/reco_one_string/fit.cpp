@@ -18,17 +18,21 @@ fit::~fit()
 }
 
 double fit::fit_function(double* x, double *par){
-    double c = 299792458;
-    double sin_cerenkov = 0.669; //42 degrees
-    //par[0]=t0, par[1]=z_c, par[2]=sintheta = coszenith, par[3]=d_c, x=z
-    return par[0] + ((x[0] - par[1]) * par[2] + sin_cerenkov * sqrt(pow(par[3],2) + (1 - pow(par[2],2)) * pow((x[0] - par[1]),2)))/c;
+    double c = 0.299792458;
+    double tan_cerenkov = 0.900404; //42 degrees
+
+    double t_c = par[0];
+    double z_c = par[1];
+    double coszenith = par[2];
+    double d_c = par[3];
+    
+    return t_c + 1/c * (-(x[0]-z_c)*coszenith + tan_cerenkov*sqrt(d_c*d_c + (1-coszenith*coszenith)*(x[0]-z_c)*(x[0]-z_c)));
 }
 
 void fit::graph_fit(TTree* tree){
     
     std::vector<float> *t = new std::vector<float>();
-    std::vector<int> *domid = new std::vector<int>();
-    // std::vector<double> *zenith = new std::vector<double>();
+    std::vector<float> *domid = new std::vector<float>();
     double coszenith;
     std::vector<float> *eventid = new std::vector<float>();
 
@@ -36,7 +40,6 @@ void fit::graph_fit(TTree* tree){
     TBranch* t_branch = root_editor::load_branch(tree, "t", &t);
     TBranch* domid_branch = root_editor::load_branch(tree, "DomId", &domid);
     TBranch* zenith_branch = root_editor::load_branch(tree, "coszenith", &coszenith);
-
 
     int entries = tree->GetEntries();;
     for (int i=0; i<entries; i++){
@@ -52,17 +55,18 @@ void fit::graph_fit(TTree* tree){
 
         double zmin = -300;
         double zmax = 300;
-
+        float min_t = *std::min_element(t->begin(), t->end());
         for (int j=0; j<n; j++){
             gr->SetPoint(j, 300-30*(domid->at(j)), t->at(j));
+            // std::cout<<"z: "<<300-30*(domid->at(j))<<" t: "<<t->at(j)<<std::endl;
             zmin = std::min<double>(zmin, double(300-30*(domid->at(j))));
             zmax = std::max<double>(zmax, double(300-30*(domid->at(j))));
-            
         }
 
         TF1 *f = new TF1("f", fit_function, zmin, zmax, 4);
-        gr->Fit(f, "S");
-        // zenith->push_back(f->GetParameter(2));
+        f->SetParameter(0, min_t);
+        f->SetParameter(2, -0.5);
+        gr->Fit(f, "");
         coszenith = f->GetParameter(2);
         zenith_branch->Fill();
         delete gr;
@@ -72,5 +76,4 @@ void fit::graph_fit(TTree* tree){
     delete t;
     delete domid;
     delete eventid;
-
 }
