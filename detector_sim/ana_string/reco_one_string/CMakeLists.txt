@@ -3,8 +3,8 @@ project(analysis_atm_muon)
 
 set(CMAKE_CXX_STANDARD 17)
 
-file(GLOB sources ${PROJECT_SOURCE_DIR}/*.cpp)
-file(GLOB headers ${PROJECT_SOURCE_DIR}/*.hpp)
+file(GLOB sources ${PROJECT_SOURCE_DIR}/src/*.cpp)
+file(GLOB headers ${PROJECT_SOURCE_DIR}/include/*.hpp)
 
 #find ROOT
 find_package(ROOT REQUIRED COMPONENTS MathCore RIO Hist Tree Graf)
