@@ -141,11 +141,11 @@ def setup_plots(save_dir:str, plots:dict=None):
     return plots
 
 class GlobalSetting:
-    save_dir = './save_GSF/'
+    save_dir = './save/'
     os.makedirs(save_dir, exist_ok=True)
 
     # Load / Save Corsika8 muon
-    muon_c8_path = save_dir + 'muon_C8.csv'
+    muon_c8_path = save_dir + 'muon_C8_2.5km.csv'
     if os.path.exists(muon_c8_path):
         muon_c8 = pd.read_csv(muon_c8_path).set_index('shower')
     else:
@@ -166,8 +166,8 @@ class GlobalSetting:
         for i, primary_name in enumerate(prim_par):
             for settings in sim_group:
                 # full angle 1-100TeV
-                cor_path_list = glob.glob('/lustre/neutrino/huangweilun/atmos_muon/COR_atm_muon/test_proton/bin/' + primary_name + '/' + settings[0] + '/part*/my_shower/')
-                cor_json_list = glob.glob('/lustre/neutrino/huangweilun/atmos_muon/COR_atm_muon/test_proton/bin/' + primary_name + '/' + settings[0] + '/part*/Primaries.json')
+                cor_path_list = glob.glob('/media/ineffablord/T7/siMu_atm/data/' + primary_name + '/' + settings[0] + '/part*/my_shower/')
+                cor_json_list = glob.glob('/media/ineffablord/T7/siMu_atm/data/' + primary_name + '/' + settings[0] + '/part*/Primaries.json')
                 c_s0 = CorsikaSamples(path_list=cor_path_list,  josn_list=cor_json_list, primary_flux_model=primary_flux_model,
                                     num_events_list=np.multiply(np.ones_like(cor_path_list,np.double),settings[3][i]),
                                         id = i, energy_range=settings[1], costh_range=settings[2], primary_Z=prim_Z[i])
@@ -182,9 +182,9 @@ class GlobalSetting:
         muon_c8 = pd.concat(muon_c8)
         primary_c8 = pd.concat(primary_c8)
         # restrict muons within certain region
-        muon_c8 = muon_c8.loc[(muon_c8.x**2+muon_c8.y**2<(2e3**2))]
+        muon_c8 = muon_c8.loc[(muon_c8.x**2+muon_c8.y**2<(2.5e3**2))]
         # weight unit: [s-1 m-2]
-        muon_c8['weight'] = muon_c8.weight / (math.pi * ( 2e3**2) )
+        muon_c8['weight'] = muon_c8.weight / (math.pi * ( 2.5e3**2) )
 
         muon_c8.to_csv(muon_c8_path)
         # weight unit: [s-1]

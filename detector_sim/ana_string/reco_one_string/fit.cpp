@@ -51,13 +51,15 @@ void fit::graph_fit(TTree* tree){
         zenith_branch->GetEntry(i);
 
         int n = domid->size();
-        TGraph *gr = new TGraph(n);
+        TGraphErrors* gr = new TGraphErrors(n);
+        // TGraph *gr = new TGraph(n);
 
         double zmin = -300;
         double zmax = 300;
         float min_t = *std::min_element(t->begin(), t->end());
         for (int j=0; j<n; j++){
             gr->SetPoint(j, 300-30*(domid->at(j)), t->at(j));
+            gr->SetPointError(j, 0, 1.3/(2*sqrt(2*log(2))));
             // std::cout<<"z: "<<300-30*(domid->at(j))<<" t: "<<t->at(j)<<std::endl;
             zmin = std::min<double>(zmin, double(300-30*(domid->at(j))));
             zmax = std::max<double>(zmax, double(300-30*(domid->at(j))));
@@ -65,9 +67,13 @@ void fit::graph_fit(TTree* tree){
 
         TF1 *f = new TF1("f", fit_function, zmin, zmax, 4);
         f->SetParameter(0, min_t);
-        f->SetParameter(2, -0.5);
-        gr->Fit(f, "");
+        f->SetParameter(2, 0.92);
+        f->SetParLimits(2, 0, 1.0);
+        //TODO check other parameters
+        gr->Fit(f, "M");
         coszenith = f->GetParameter(2);
+        //TODO record chi-square
+        //TODO record uncertainty
         zenith_branch->Fill();
         delete gr;
         delete f;
