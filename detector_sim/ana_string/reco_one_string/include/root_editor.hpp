@@ -14,7 +14,9 @@ public:
     template <typename U>
     static int branches_getentry(U& struct_name, int i){
         for (TBranch* branch : struct_name.branches){
-            branch->GetEntry(i);
+            if(branch != nullptr){
+                branch->GetEntry(i);
+            }
         }
         return i;
     };
