@@ -8,7 +8,8 @@ public:
     void create_filtered_tree(std::string& );
     void apply_L2(int );
     void first_hit();
-
+    
+    void sort_hit();
 
     TTree* get_filtered_tree(){
         return filtered_tree;

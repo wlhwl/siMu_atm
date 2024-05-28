@@ -23,7 +23,7 @@ int main(int argc, char** argv){
     // npe_process.process();
     
     filter filter_obj(tree);
-    filter_obj.apply_L2(4);
+    filter_obj.apply_L2(5);
     TTree* filtered_tree = filter_obj.get_filtered_tree();
 
     fit::graph_fit(filtered_tree);

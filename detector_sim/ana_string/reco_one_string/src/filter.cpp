@@ -52,6 +52,7 @@ void filter::apply_L2(int dom_num_thres){
             }
         }
         if(doms.size() >= dom_num_thres){
+            sort_hit();
             filtered_tree->Fill();
         }
         fil_vec.EventId->clear();
@@ -61,6 +62,44 @@ void filter::apply_L2(int dom_num_thres){
         fil_vec.t->clear();
     }
     filtered_tree->Write("",TObject::kOverwrite);
+
+}
+
+void filter::sort_hit(){
+    std::vector<std::pair<float,size_t>> pairedDomId;
+    for (size_t i =0; i < fil_vec.DomId->size(); i++){
+        pairedDomId.push_back(std::make_pair(fil_vec.DomId->at(i),i));
+    }
+    std::sort(pairedDomId.begin(),pairedDomId.end(),
+        [this](const std::pair<float,size_t>& a, const std::pair<float,size_t>& b){
+            if (a.first != b.first)
+                return a.first < b.first;
+            else
+                return fil_vec.t->at(a.second) < fil_vec.t->at(b.second);
+        });
+    std::vector<float> sortedDomId;
+    std::vector<float> sortedt;
+    std::vector<float> sortedwavelength;
+    std::vector<float> sortedEventId;
+    std::vector<float> sortedPmtId;
+    for (size_t i = 0; i < pairedDomId.size(); i++){
+        sortedDomId.push_back(fil_vec.DomId->at(pairedDomId[i].second));
+        sortedt.push_back(fil_vec.t->at(pairedDomId[i].second));
+        sortedwavelength.push_back(fil_vec.wavelength->at(pairedDomId[i].second));
+        sortedEventId.push_back(fil_vec.EventId->at(pairedDomId[i].second));
+        sortedPmtId.push_back(fil_vec.PmtId->at(pairedDomId[i].second));
+    }
+    fil_vec.DomId->clear();
+    fil_vec.t->clear();
+    fil_vec.wavelength->clear();
+    fil_vec.EventId->clear();
+    fil_vec.PmtId->clear();
+    
+    *(fil_vec.DomId) = sortedDomId;
+    *(fil_vec.t) = sortedt;
+    *(fil_vec.wavelength) = sortedwavelength;
+    *(fil_vec.EventId) = sortedEventId;
+    *(fil_vec.PmtId) = sortedPmtId;
 }
 
 void filter::first_hit(){
