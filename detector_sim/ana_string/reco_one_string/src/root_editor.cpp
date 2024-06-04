@@ -1,7 +1,7 @@
 #include <iostream>
 #include "TFile.h"
 #include "TTree.h"
-#include "../include/root_editor.hpp"
+#include "trident/root_editor.hpp"
 
 root_editor::root_editor() {
     // Constructor

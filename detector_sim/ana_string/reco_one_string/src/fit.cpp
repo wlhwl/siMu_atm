@@ -7,8 +7,8 @@
 #include "TTree.h"
 #include "TFitResult.h"
 #include <map>
-#include "../include/fit.hpp"
-#include "../include/root_editor.hpp"
+#include "trident/fit.hpp"
+#include "trident/root_editor.hpp"
 
 
 fit::fit(/* args */)
