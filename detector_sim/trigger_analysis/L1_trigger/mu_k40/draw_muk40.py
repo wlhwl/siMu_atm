@@ -33,6 +33,7 @@ def k40(pc_cl):
     # pc_cl.ax.step(1, 71863.11901504689, marker='.', color='b', label='world radius = 250m')
     # pc_cl.ax.step(k40coin_num, rate_win20, label='K40', where='mid', color='cornflowerblue')
     pc_cl.ax.plot(k40coin_num, rate_win20, drawstyle='steps-mid', color='cornflowerblue',label='K40')
+    print(rate_win20)
     pc_cl.ax.fill_between(k40coin_num, rate_win20,step='mid', color='cornflowerblue', alpha=0.3)
 
     # # pc_cl.ax.errorbar(1, 71863.11901504689, yerr=12396.756747187115, fmt='.', color='b')
