@@ -49,8 +49,8 @@ int main(int argc, char** argv){
     Logger::getInstance().setPattern("[%Y-%m-%d %H:%M:%S.%e] [%^%l%$] %v");
 
     // Change log levels dynamically
-    Logger::getInstance().setConsoleLogLevel(spdlog::level::info);
-    Logger::getInstance().setFileLogLevel(spdlog::level::warn);
+    Logger::getInstance().setConsoleLogLevel(spdlog::level::debug);
+    Logger::getInstance().setFileLogLevel(spdlog::level::debug);
     Logger::getInstance().setLoggerLogLevel(spdlog::level::trace);
 
     if (argc != nArgs) {
