@@ -15,6 +15,12 @@ public:
         static Logger instance;
         return instance;
     }
+    
+    // Method to log debugings with formatting
+    template<typename... Args>
+    void debug(const std::string& fmt, Args&&... args) {
+        logger->debug(fmt, std::forward<Args>(args)...);
+    }
 
     // Method to log warnings with formatting
     template<typename... Args>
