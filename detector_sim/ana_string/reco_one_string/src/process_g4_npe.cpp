@@ -6,8 +6,8 @@
 #include "TBranch.h"
 #include <random>
 #include <boost/math/interpolators/cardinal_cubic_b_spline.hpp>
-#include "../include/process_g4_npe.hpp"
-#include "../include/root_editor.hpp"
+#include "trident/process_g4_npe.hpp"
+#include "trident/root_editor.hpp"
 
 process_g4_npe::process_g4_npe(TTree* t){
     tree = t;

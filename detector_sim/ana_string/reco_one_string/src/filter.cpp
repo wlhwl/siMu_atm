@@ -1,6 +1,6 @@
 #include "TTree.h"
-#include "../include/filter.hpp"
-#include "../include/root_editor.hpp"
+#include "trident/filter.hpp"
+#include "trident/root_editor.hpp"
 #include <iostream>
 #include <set>
 
